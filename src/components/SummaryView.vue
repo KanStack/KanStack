@@ -1,337 +1,215 @@
 <template>
   <div class="h-full flex flex-col">
-    <!-- Summary Header -->
-    <div class="h-10 border-b border-border-subtle flex items-center px-4 justify-between">
-      <div class="flex items-center gap-4">
-        <h2 class="text-base">Summary</h2>
-        <span class="text-text-muted text-xs">{{ totalCards }} cards across {{ projectsCount }} projects</span>
-      </div>
-      <div class="flex items-center gap-2">
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Search cards..."
-          class="terminal-input text-xs w-48"
-        />
-        <button 
-          v-if="searchQuery"
-          class="terminal-btn text-xs"
-          @click="clearSearch"
-        >
-          Clear
-        </button>
-      </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="h-8 border-b border-border-subtle flex items-center px-4 gap-4">
-      <span class="text-xs text-text-secondary">Filters:</span>
-      <label class="flex items-center gap-1 text-xs cursor-pointer">
-        <input 
-          v-model="excludeArchived" 
-          type="checkbox"
-          class="accent-white"
-        />
-        <span>Hide archived</span>
-      </label>
-      <div class="flex items-center gap-1">
-        <span class="text-xs text-text-secondary">Tags:</span>
-        <button
-          v-for="tag in availableTags"
-          :key="tag"
-          class="px-2 py-0.5 text-xs border"
-          :class="getTagClass(tag)"
-          @click="toggleTag(tag)"
-        >
-          {{ tag }}
-        </button>
-      </div>
-    </div>
-
     <!-- Loading -->
     <div v-if="isLoading" class="flex-1 flex items-center justify-center text-text-muted text-sm">
       Loading cards...
     </div>
 
-    <!-- Columns Container -->
-    <div v-else class="flex-1 overflow-x-auto overflow-y-hidden">
-      <div class="flex h-full p-4 gap-4 min-w-max">
-        <div
-          v-for="column in columns"
-          :key="column.id"
-          class="w-80 flex flex-col bg-bg-secondary border border-border-subtle"
-        >
-          <!-- Column Header -->
-          <div class="p-3 border-b border-border-subtle flex items-center justify-between">
-            <h3 class="text-sm font-medium">{{ column.name }}</h3>
-            <span class="text-text-muted text-xs">{{ getColumnCards(column.id).length }}</span>
-          </div>
-
-          <!-- Cards Container -->
-          <div class="flex-1 overflow-y-auto p-2 space-y-2">
-            <div
-              v-for="cardWithSource in getColumnCards(column.id)"
-              :key="cardWithSource.card.id"
-              class="bg-bg-tertiary border border-border-subtle p-3 cursor-pointer hover:border-border-visible transition-colors"
-              @click="openCard(cardWithSource)"
-            >
-              <!-- Project Badge -->
-              <div class="flex items-center justify-between mb-2">
-                <span 
-                  class="text-xs px-1 border border-border-subtle text-text-muted"
-                  :class="{ 'opacity-50': !cardWithSource.source.is_available }"
-                >
-                  {{ getProjectName(cardWithSource.source.project_id) }}
-                </span>
-                <div v-if="cardWithSource.card.priority > 0" class="text-xs text-text-muted">
-                  {{ '!'.repeat(cardWithSource.card.priority) }}
-                </div>
-              </div>
-              
-              <h4 class="text-sm font-medium mb-2">{{ cardWithSource.card.title }}</h4>
-              
-              <!-- Card Meta -->
-              <div class="flex items-center gap-2 text-xs text-text-muted">
-                <span v-if="cardWithSource.card.due_date" :class="{ 'text-text-primary': isOverdue(cardWithSource.card.due_date) }">
-                  {{ formatDate(cardWithSource.card.due_date) }}
-                </span>
-                <span v-if="cardWithSource.card.checklist.length > 0">
-                  [{{ cardWithSource.card.checklist.filter(i => i.checked).length }}/{{ cardWithSource.card.checklist.length }}]
-                </span>
-                <span v-if="cardWithSource.card.tags.length > 0" class="flex gap-1">
-                  <span v-for="tag in cardWithSource.card.tags.slice(0, 2)" :key="tag" class="px-1 border border-border-subtle">
-                    {{ tag }}
-                  </span>
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+    <!-- Error -->
+    <div v-else-if="errorMessage" class="flex-1 flex items-center justify-center text-red-400 text-sm">
+      <div class="text-center">
+        <p class="mb-2">{{ errorMessage }}</p>
+        <button class="terminal-btn text-xs" @click="refreshData">Retry</button>
       </div>
     </div>
 
-    <!-- Card Detail Modal -->
-    <SummaryCardModal
-      v-if="selectedCard"
-      :card-with-source="selectedCard"
-      @close="selectedCard = null"
-      @refresh="refreshData"
+    <!-- Empty State -->
+    <div v-else-if="!summaryBoard || summaryBoard.cards.length === 0" class="flex-1 flex items-center justify-center text-text-muted">
+      <div class="text-center">
+        <p class="mb-2">No cards found</p>
+        <p class="text-xs">Create a project and add cards to see them here</p>
+      </div>
+    </div>
+
+    <!-- Board View — same component used everywhere -->
+    <BoardView
+      v-else
+      :board="summaryBoard"
+      :readonly="true"
+      @move-card="handleMoveCard"
+      @save-card="handleSaveCard"
+      @archive-card="handleArchiveCard"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useConfigStore } from '@/stores/config'
 import * as tauri from '@/services/tauri'
-import SummaryCardModal from './SummaryCardModal.vue'
-import type { CardWithContext, Card, Board } from '@/types'
+import BoardView from './BoardView.vue'
+import type { Board, Card, Column } from '@/types'
 
-const configStore = useConfigStore()
-
-const allCards = ref<CardWithContext[]>([])
-const columnIdToName = ref<Record<string, string>>({})
-const searchQuery = ref('')
-const excludeArchived = ref(true)
-const selectedTags = ref<string[]>([])
-const selectedCard = ref<CardWithContext | null>(null)
-const isLoading = ref(false)
-
-const columns = [
-  { id: 'backlog', name: 'Backlog' },
-  { id: 'todo', name: 'To Do' },
-  { id: 'in-progress', name: 'In Progress' },
-  { id: 'done', name: 'Done' },
-  { id: 'other', name: 'Other' }
-]
-
-const filteredCards = computed(() => {
-  let cards = allCards.value
-
-  // Filter archived
-  if (excludeArchived.value) {
-    cards = cards.filter(c => !c.card.archived)
-  }
-
-  // Filter by tags
-  if (selectedTags.value.length > 0) {
-    cards = cards.filter(c => 
-      c.card.tags.some(tag => selectedTags.value.includes(tag))
-    )
-  }
-
-  // Search filter
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    cards = cards.filter(c => 
-      c.card.title.toLowerCase().includes(query) ||
-      c.card.content.toLowerCase().includes(query) ||
-      c.card.tags.some(tag => tag.toLowerCase().includes(query))
-    )
-  }
-
-  return cards
-})
-
-const totalCards = computed(() => filteredCards.value.length)
-const projectsCount = computed(() => configStore.projects.length)
-
-const availableTags = computed(() => {
-  const tags = new Set<string>()
-  for (const cardWithSource of allCards.value) {
-    for (const tag of cardWithSource.card.tags) {
-      tags.add(tag)
-    }
-  }
-  return Array.from(tags).sort()
-})
-
-const knownColumnMapping: Record<string, string[]> = {
-  'backlog': ['backlog'],
-  'todo': ['todo', 'to do'],
-  'in-progress': ['in-progress', 'inprogress', 'in progress'],
-  'done': ['done']
-}
-
-function matchesKnownColumn(resolvedName: string): boolean {
-  const lower = resolvedName.toLowerCase()
-  return Object.values(knownColumnMapping).some(names =>
-    names.some(name => lower.includes(name) || name.includes(lower))
-  )
-}
-
-function getColumnCards(columnId: string): CardWithContext[] {
-  if (columnId === 'other') {
-    return filteredCards.value.filter(c => {
-      const resolvedName = columnIdToName.value[c.card.column_id] || c.card.column_id
-      return !matchesKnownColumn(resolvedName)
-    })
-  }
-
-  const validNames = knownColumnMapping[columnId] || [columnId]
-  
-  return filteredCards.value.filter(c => {
-    const resolvedName = columnIdToName.value[c.card.column_id] || c.card.column_id
-    return validNames.some(name => 
-      resolvedName.toLowerCase().includes(name) ||
-      name.includes(resolvedName.toLowerCase())
-    )
-  })
-}
-
-function getProjectName(projectId: string): string {
-  const project = configStore.projects.find(p => p.id === projectId)
-  return project?.name || 'Unknown'
-}
-
-function openCard(cardWithSource: CardWithContext) {
-  selectedCard.value = cardWithSource
-}
-
-function toggleTag(tag: string) {
-  const index = selectedTags.value.indexOf(tag)
-  if (index === -1) {
-    selectedTags.value.push(tag)
-  } else {
-    selectedTags.value.splice(index, 1)
-  }
-}
-
-function getTagClass(tag: string): string {
-  return selectedTags.value.includes(tag) 
-    ? 'border-text-primary bg-bg-tertiary' 
-    : 'border-border-subtle text-text-muted'
-}
-
-function clearSearch() {
-  searchQuery.value = ''
-}
-
-function isOverdue(dueDate: string): boolean {
-  return new Date(dueDate) < new Date()
-}
-
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  return date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' })
-}
-
-async function refreshData() {
-  console.log('Starting refreshData...')
-  isLoading.value = true
-  allCards.value = []
-  columnIdToName.value = {}
-
-  try {
-    console.log('Number of projects:', configStore.projects.length)
-    
-    for (const project of configStore.projects) {
-      console.log('Processing project:', project.name, 'at', project.path)
-      
-      // Check if project is available
-      const isAvailable = await tauri.pathExists(project.path).catch(() => false)
-      console.log('Project available:', isAvailable)
-      
-      // Load all boards in this project
-      const boardsPath = `${project.path}/boards`
-      console.log('Listing boards at:', boardsPath)
-      const entries = await tauri.listDirectory(boardsPath).catch((err) => {
-        console.error('Failed to list boards:', err)
-        return []
-      })
-      console.log('Found board files:', entries.length)
-      
-      for (const entry of entries) {
-        if (!entry.isDirectory && entry.name.endsWith('.json')) {
-          try {
-            const boardPath = `${boardsPath}/${entry.name}`
-            const content = await tauri.readFile(boardPath)
-            const board: Board = JSON.parse(content)
-            
-            // Map column IDs to names
-            for (const col of board.columns) {
-              columnIdToName.value[col.id] = col.name
-            }
-            
-            // Add cards with source info
-            console.log('Board has', board.cards.length, 'cards')
-            for (const card of board.cards) {
-              allCards.value.push({
-                card,
-                source: {
-                  project_id: project.id,
-                  board_id: board.id,
-                  project_path: project.path,
-                  is_available: isAvailable
-                }
-              })
-            }
-          } catch (err) {
-            console.error('Failed to load board:', err)
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.error('Failed to refresh summary:', err)
-  } finally {
-    isLoading.value = false
-    console.log('Finished loading. Total cards:', allCards.value.length)
-  }
-}
-
-// Reload data when component becomes visible
-import { watch } from 'vue'
 const props = defineProps<{
   isActive?: boolean
 }>()
 
-// Always refresh when mounted or when visibility changes
+const configStore = useConfigStore()
+
+const isLoading = ref(false)
+const errorMessage = ref('')
+
+// Raw data loaded from all projects
+const loadedBoards = ref<Array<{ board: Board; projectPath: string }>>([])
+
+/**
+ * Build a unified Board object from all loaded boards.
+ * Columns are deduped by name (case-insensitive) — the first occurrence wins.
+ * Every card keeps its real column_id so drag-and-drop just works.
+ */
+const summaryBoard = computed<Board | null>(() => {
+  if (loadedBoards.value.length === 0) return null
+
+  // Dedupe columns by lowercase name, preserving the first occurrence
+  const seenNames = new Map<string, Column>()
+  for (const { board } of loadedBoards.value) {
+    for (const col of board.columns) {
+      const key = col.name.toLowerCase()
+      if (!seenNames.has(key)) {
+        seenNames.set(key, { ...col })
+      }
+    }
+  }
+
+  const columns = Array.from(seenNames.values())
+
+  // Collect all cards from all boards
+  const cards: Card[] = []
+  for (const { board } of loadedBoards.value) {
+    for (const card of board.cards) {
+      cards.push({ ...card })
+    }
+  }
+
+  return {
+    id: '__summary__',
+    version: '1.0',
+    schema_version: 1,
+    name: 'Summary',
+    project_id: '__summary__',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    columns,
+    cards,
+  }
+})
+
+/**
+ * Find which loaded board a card belongs to, so we can write back to the correct file.
+ */
+function findSourceBoard(cardId: string): { board: Board; projectPath: string } | null {
+  for (const entry of loadedBoards.value) {
+    if (entry.board.cards.some(c => c.id === cardId)) {
+      return entry
+    }
+  }
+  return null
+}
+
+async function saveBoardToDisk(board: Board, projectPath: string) {
+  const boardPath = `${projectPath}/boards/${board.id}.json`
+  console.log('[SummaryView] saving board to:', boardPath)
+  await tauri.writeFile(boardPath, JSON.stringify(board, null, 2))
+}
+
+// --- Event handlers from BoardView ---
+
+async function handleMoveCard(_boardId: string, cardId: string, targetColumnId: string) {
+  const source = findSourceBoard(cardId)
+  if (!source) {
+    console.error('[SummaryView] handleMoveCard — source board not found for card:', cardId)
+    return
+  }
+
+  const card = source.board.cards.find(c => c.id === cardId)
+  if (!card) return
+
+  console.log('[SummaryView] moving card', cardId, 'from', card.column_id, 'to', targetColumnId)
+  card.column_id = targetColumnId
+  card.updated_at = new Date().toISOString()
+  source.board.updated_at = new Date().toISOString()
+
+  await saveBoardToDisk(source.board, source.projectPath)
+  await refreshData()
+}
+
+async function handleSaveCard(_boardId: string, updatedCard: Card) {
+  const source = findSourceBoard(updatedCard.id)
+  if (!source) return
+
+  const idx = source.board.cards.findIndex(c => c.id === updatedCard.id)
+  if (idx === -1) return
+
+  source.board.cards[idx] = { ...updatedCard, updated_at: new Date().toISOString() }
+  source.board.updated_at = new Date().toISOString()
+
+  await saveBoardToDisk(source.board, source.projectPath)
+  await refreshData()
+}
+
+async function handleArchiveCard(_boardId: string, cardId: string) {
+  const source = findSourceBoard(cardId)
+  if (!source) return
+
+  const card = source.board.cards.find(c => c.id === cardId)
+  if (!card) return
+
+  card.archived = true
+  card.archived_at = new Date().toISOString()
+  card.status = 'archived'
+  card.updated_at = new Date().toISOString()
+  source.board.updated_at = new Date().toISOString()
+
+  await saveBoardToDisk(source.board, source.projectPath)
+  await refreshData()
+}
+
+// --- Data loading ---
+
+async function refreshData() {
+  isLoading.value = true
+  errorMessage.value = ''
+  const results: Array<{ board: Board; projectPath: string }> = []
+
+  try {
+    for (const project of configStore.projects) {
+      const isAvailable = await tauri.pathExists(project.path).catch(() => false)
+      if (!isAvailable) continue
+
+      const boardsPath = `${project.path}/boards`
+      const entries = await tauri.listDirectory(boardsPath).catch(() => [])
+
+      for (const entry of entries) {
+        if (!entry.isDirectory && entry.name.endsWith('.json')) {
+          try {
+            const content = await tauri.readFile(`${boardsPath}/${entry.name}`)
+            const board: Board = JSON.parse(content)
+            results.push({ board, projectPath: project.path })
+          } catch (err) {
+            console.error('[SummaryView] failed to load board:', entry.name, err)
+          }
+        }
+      }
+    }
+
+    loadedBoards.value = results
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : 'Failed to load cards'
+    console.error('[SummaryView] refreshData failed:', err)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// Refresh when view becomes active
 watch(() => props.isActive, async (newVal) => {
   if (newVal !== false) {
-    console.log('Summary view activated, refreshing data...')
     await refreshData()
-    console.log('Summary view loaded', allCards.value.length, 'cards')
   }
 }, { immediate: true })
+
+// Refresh when projects change
+watch(() => configStore.projects, async () => {
+  await refreshData()
+}, { deep: true })
 </script>
