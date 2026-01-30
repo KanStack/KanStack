@@ -73,7 +73,7 @@ export const useConfigStore = defineStore('config', () => {
         default_project_location: defaultDataPath
       },
       projects: [],
-      combined_board_settings: {
+      summary_settings: {
         visible_projects: ['all'],
         filters: {
           exclude_archived: true,

@@ -4,7 +4,12 @@
     <header class="h-12 border-b border-border-subtle flex items-center px-4 justify-between">
       <div class="flex items-center gap-4">
         <h1 class="text-lg font-bold tracking-wider">KANSTACK</h1>
-        <span class="text-text-muted text-xs">v0.0.1</span>
+        <a
+          href="#"
+          class="text-text-muted text-xs hover:text-text-primary transition-colors"
+          @click.prevent="openReleaseNotes"
+          title="View release notes"
+        >v{{ appVersion }}</a>
       </div>
       <div class="flex items-center gap-2">
         <button 
@@ -219,11 +224,14 @@ import BoardView from './components/BoardView.vue'
 import SummaryView from './components/SummaryView.vue'
 import CommandPalette from './components/CommandPalette.vue'
 import type { ProjectEntry } from './types'
+import { getVersion } from '@tauri-apps/api/app'
+import { open } from '@tauri-apps/plugin-shell'
 
 const configStore = useConfigStore()
 const projectStore = useProjectStore()
 
 const sidebarOpen = ref(true)
+const appVersion = ref('0.0.0')
 const currentView = ref<'board' | 'summary'>('summary')
 const showCommandPalette = ref(false)
 const showNewProjectModal = ref(false)
@@ -236,7 +244,20 @@ const projectToDelete = ref<ProjectEntry | null>(null)
 
 onMounted(async () => {
   await configStore.loadConfig()
+  try {
+    appVersion.value = await getVersion()
+  } catch (err) {
+    console.error('Failed to get app version:', err)
+  }
 })
+
+async function openReleaseNotes() {
+  try {
+    await open(`https://github.com/galengreen/KanStack/tags`)
+  } catch (err) {
+    console.error('Failed to open release notes:', err)
+  }
+}
 
 async function loadProject(project: ProjectEntry) {
   currentView.value = 'board'

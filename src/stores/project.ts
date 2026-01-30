@@ -202,15 +202,29 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   async function saveBoard(board: Board) {
-    if (!currentProjectPath.value) return
+    console.log('[ProjectStore] saveBoard called for board:', board.id, 'currentProjectPath:', currentProjectPath.value)
+    if (!currentProjectPath.value) {
+      console.error('[ProjectStore] saveBoard — no currentProjectPath, aborting')
+      return
+    }
 
     board.updated_at = new Date().toISOString()
     
     const boardPath = `${currentProjectPath.value}/boards/${board.id}.json`
-    await tauri.writeFile(boardPath, JSON.stringify(board, null, 2))
+    console.log('[ProjectStore] saveBoard — writing to:', boardPath)
+    
+    try {
+      await tauri.writeFile(boardPath, JSON.stringify(board, null, 2))
+      console.log('[ProjectStore] saveBoard — file written successfully')
+    } catch (err) {
+      console.error('[ProjectStore] saveBoard — writeFile failed:', err)
+      throw err
+    }
 
-    // Force reactivity update with new array reference
-    boards.value = boards.value.map(b => b.id === board.id ? { ...board } : b)
+    // Force reactivity update — deep clone the updated board so Vue detects changes
+    const oldLength = boards.value.length
+    boards.value = boards.value.map(b => b.id === board.id ? JSON.parse(JSON.stringify(board)) : b)
+    console.log('[ProjectStore] saveBoard — reactivity updated, boards count:', oldLength, '→', boards.value.length)
   }
 
   async function deleteBoard(boardId: string) {
@@ -284,17 +298,35 @@ export const useProjectStore = defineStore('project', () => {
   }
 
   async function moveCard(boardId: string, cardId: string, targetColumnId: string, targetOrder?: string) {
+    console.log('[ProjectStore] moveCard called:', { boardId, cardId, targetColumnId, targetOrder })
     const board = boards.value.find(b => b.id === boardId)
-    if (!board) return
+    if (!board) {
+      console.error('[ProjectStore] moveCard — board not found:', boardId, 'available boards:', boards.value.map(b => b.id))
+      return
+    }
 
     const card = board.cards.find(c => c.id === cardId)
-    if (!card) return
+    if (!card) {
+      console.error('[ProjectStore] moveCard — card not found:', cardId, 'in board:', boardId, 'available cards:', board.cards.map(c => c.id))
+      return
+    }
 
+    const oldColumnId = card.column_id
     card.column_id = targetColumnId
     card.order = targetOrder || generateOrder(board.cards, targetColumnId, cardId)
     card.updated_at = new Date().toISOString()
 
-    await saveBoard(board)
+    console.log('[ProjectStore] moveCard — moving card from column', oldColumnId, 'to', targetColumnId, 'with order', card.order)
+
+    try {
+      await saveBoard(board)
+      console.log('[ProjectStore] moveCard — saveBoard completed')
+    } catch (err) {
+      console.error('[ProjectStore] moveCard — saveBoard failed:', err)
+      // Revert
+      card.column_id = oldColumnId
+      throw err
+    }
   }
 
   async function deleteCard(boardId: string, cardId: string) {

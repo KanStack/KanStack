@@ -85,13 +85,13 @@ fn expand_tilde(path: &str) -> Result<PathBuf, String> {
 #[tauri::command]
 pub fn delete_file(path: String) -> Result<(), String> {
     let expanded = expand_tilde(&path)?;
-    fs::remove_file(&expanded).map_err(|e| format!("Failed to delete file: {}", e))
+    trash::delete(&expanded).map_err(|e| format!("Failed to move file to trash: {}", e))
 }
 
 #[tauri::command]
 pub fn delete_directory(path: String) -> Result<(), String> {
     let expanded = expand_tilde(&path)?;
-    fs::remove_dir_all(&expanded).map_err(|e| format!("Failed to delete directory: {}", e))
+    trash::delete(&expanded).map_err(|e| format!("Failed to move directory to trash: {}", e))
 }
 
 // Utility function to check if a path exists
