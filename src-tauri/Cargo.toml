@@ -1,6 +1,6 @@
 [package]
 name = "kanstack"
-version = "0.2.0"
+version = "0.2.1"
 description = "A local-first kanban board application"
 authors = ["Galen Green"]
 edition = "2021"
