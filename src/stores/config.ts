@@ -4,35 +4,26 @@ import * as tauri from '@/services/tauri'
 import type { AppConfig, ProjectEntry } from '@/types'
 
 export const useConfigStore = defineStore('config', () => {
-  // State
   const config = ref<AppConfig | null>(null)
   const isLoading = ref(false)
   const error = ref<string | null>(null)
 
-  // Getters
-  const projects = computed(() => config.value?.projects || [])
+  const projects = computed(() => config.value?.projects ?? [])
   const settings = computed(() => config.value?.settings)
 
-  // Actions
   async function loadConfig() {
     isLoading.value = true
     error.value = null
     
     try {
       const configPath = await tauri.getConfigPath()
-      
-      // Check if config exists
       const exists = await tauri.pathExists(configPath).catch(() => false)
       
       if (!exists) {
-        // Create default config
-        const defaultConfig = await createDefaultConfig()
-        await saveConfig(defaultConfig)
-        config.value = defaultConfig
+        config.value = await createDefaultConfig()
+        await saveConfig()
       } else {
-        // Load existing config
-        const content = await tauri.readFile(configPath)
-        config.value = JSON.parse(content)
+        config.value = JSON.parse(await tauri.readFile(configPath))
       }
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to load config'
@@ -43,17 +34,14 @@ export const useConfigStore = defineStore('config', () => {
   }
 
   async function saveConfig(newConfig?: AppConfig) {
-    const configToSave = newConfig || config.value
-    if (!configToSave) return
+    const toSave = newConfig ?? config.value
+    if (!toSave) return
 
     try {
       const configPath = await tauri.getConfigPath()
       await tauri.ensureDirectory(configPath.replace('/config.json', ''))
-      await tauri.writeFile(configPath, JSON.stringify(configToSave, null, 2))
-      
-      if (!newConfig) {
-        config.value = configToSave
-      }
+      await tauri.writeFile(configPath, JSON.stringify(toSave, null, 2))
+      if (!newConfig) config.value = toSave
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Failed to save config'
       console.error('Failed to save config:', err)
@@ -63,7 +51,6 @@ export const useConfigStore = defineStore('config', () => {
 
   async function createDefaultConfig(): Promise<AppConfig> {
     const defaultDataPath = await tauri.getDefaultDataPath()
-    
     return {
       app_version: '0.0.1',
       settings: {
@@ -75,10 +62,7 @@ export const useConfigStore = defineStore('config', () => {
       projects: [],
       summary_settings: {
         visible_projects: ['all'],
-        filters: {
-          exclude_archived: true,
-          tags: []
-        }
+        filters: { exclude_archived: true, tags: [] }
       }
     }
   }
@@ -87,14 +71,9 @@ export const useConfigStore = defineStore('config', () => {
     if (!config.value) return
 
     const id = crypto.randomUUID()
-    let path: string
-
-    if (customPath) {
-      path = `${customPath}/.kanstack`
-    } else {
-      const defaultPath = config.value.settings.default_project_location
-      path = `${defaultPath}/${id}`
-    }
+    const path = customPath 
+      ? `${customPath}/.kanstack`
+      : `${config.value.settings.default_project_location}/${id}`
 
     const project: ProjectEntry = {
       id,
@@ -106,13 +85,11 @@ export const useConfigStore = defineStore('config', () => {
 
     config.value.projects.push(project)
     await saveConfig()
-
     return project
   }
 
   async function removeProject(id: string) {
     if (!config.value) return
-    
     config.value.projects = config.value.projects.filter(p => p.id !== id)
     await saveConfig()
   }

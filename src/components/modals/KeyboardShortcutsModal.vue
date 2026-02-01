@@ -16,15 +16,9 @@
           <div v-for="group in shortcutGroups" :key="group.name">
             <h3 class="text-xs uppercase tracking-wider text-text-secondary mb-2">{{ group.name }}</h3>
             <div class="space-y-1">
-              <div 
-                v-for="shortcut in group.shortcuts" 
-                :key="shortcut.key"
-                class="flex items-center justify-between py-1"
-              >
+              <div v-for="shortcut in group.shortcuts" :key="shortcut.key" class="flex items-center justify-between py-1">
                 <span class="text-sm">{{ shortcut.description }}</span>
-                <span class="px-2 py-1 bg-bg-tertiary border border-border-subtle text-xs font-mono">
-                  {{ shortcut.key }}
-                </span>
+                <span class="px-2 py-1 bg-bg-tertiary border border-border-subtle text-xs font-mono">{{ shortcut.key }}</span>
               </div>
             </div>
           </div>
@@ -40,15 +34,8 @@
 </template>
 
 <script setup lang="ts">
-interface Shortcut {
-  key: string
-  description: string
-}
-
-interface ShortcutGroup {
-  name: string
-  shortcuts: Shortcut[]
-}
+interface Shortcut { key: string; description: string }
+interface ShortcutGroup { name: string; shortcuts: Shortcut[] }
 
 const shortcutGroups: ShortcutGroup[] = [
   {
@@ -58,7 +45,7 @@ const shortcutGroups: ShortcutGroup[] = [
       { key: 'j', description: 'Navigate down' },
       { key: 'k', description: 'Navigate up' },
       { key: 'h', description: 'Navigate left' },
-      { key: 'l', description: 'Navigate right' },
+      { key: 'l', description: 'Navigate right' }
     ]
   },
   {
@@ -68,7 +55,7 @@ const shortcutGroups: ShortcutGroup[] = [
       { key: 'e', description: 'Edit card' },
       { key: 'a', description: 'Archive card' },
       { key: 'Enter', description: 'Open selected card' },
-      { key: 'Esc', description: 'Close modal / Cancel' },
+      { key: 'Esc', description: 'Close modal / Cancel' }
     ]
   },
   {
@@ -76,12 +63,10 @@ const shortcutGroups: ShortcutGroup[] = [
     shortcuts: [
       { key: 'G', description: 'Summary view (all projects)' },
       { key: 'B', description: 'Create new board' },
-      { key: '⌘K', description: 'Command palette' },
+      { key: '⌘K', description: 'Command palette' }
     ]
   }
 ]
 
-defineEmits<{
-  close: []
-}>()
+defineEmits<{ close: [] }>()
 </script>
