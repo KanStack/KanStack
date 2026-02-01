@@ -21,9 +21,7 @@
 
       <!-- Results -->
       <div class="flex-1 overflow-y-auto">
-        <div v-if="filteredCommands.length === 0" class="p-4 text-text-muted text-center">
-          No commands found
-        </div>
+        <div v-if="filteredCommands.length === 0" class="p-4 text-text-muted text-center">No commands found</div>
         
         <div v-else>
           <div
@@ -51,11 +49,7 @@
 
       <!-- Footer -->
       <div class="p-3 border-t border-border-subtle text-xs text-text-muted flex justify-between">
-        <div class="flex gap-4">
-          <span>↑↓ Navigate</span>
-          <span>↵ Select</span>
-          <span>esc Close</span>
-        </div>
+        <div class="flex gap-4"><span>↑↓ Navigate</span><span>↵ Select</span><span>esc Close</span></div>
         <span>{{ filteredCommands.length }} commands</span>
       </div>
     </div>
@@ -69,9 +63,7 @@ import { useProjectStore } from '@/stores/project'
 
 const emit = defineEmits<{
   close: []
-  'switch-view': [view: 'board' | 'summary']
   'new-project': []
-  'new-board': []
 }>()
 
 const configStore = useConfigStore()
@@ -90,41 +82,19 @@ interface Command {
   action: () => void
 }
 
+function createNewProject() {
+  emit('new-project')
+  emit('close')
+}
+
+async function loadProject(project: { id: string; path: string }) {
+  await projectStore.loadProject(project.id, project.path)
+  emit('close')
+}
+
 const commands = computed<Command[]>(() => {
   const cmds: Command[] = [
-    {
-      id: 'summary-view',
-      name: 'Summary',
-      description: 'View all cards across all projects',
-      icon: '📊',
-      shortcut: 'G',
-      action: () => {
-        emit('switch-view', 'summary')
-        emit('close')
-      }
-    },
-    {
-      id: 'new-project',
-      name: 'Create New Project',
-      description: 'Create a new kanban project',
-      icon: '📁',
-      shortcut: '',
-      action: () => {
-        emit('new-project')
-        emit('close')
-      }
-    },
-    {
-      id: 'new-board',
-      name: 'Create New Board',
-      description: 'Create a new board in current project',
-      icon: '📋',
-      shortcut: 'B',
-      action: () => {
-        emit('new-board')
-        emit('close')
-      }
-    },
+    { id: 'new-project', name: 'Create New Project', description: 'Create a new kanban project', icon: '📁', shortcut: '', action: createNewProject }
   ]
 
   // Add project navigation commands
@@ -134,29 +104,9 @@ const commands = computed<Command[]>(() => {
       name: `Open: ${project.name}`,
       description: `Switch to project "${project.name}"`,
       icon: '📂',
-      action: async () => {
-        await projectStore.loadProject(project.id, project.path)
-        emit('close')
-      }
+      action: () => loadProject(project)
     })
   })
-
-  // Add board navigation if project is loaded
-  if (projectStore.currentProjectId) {
-    projectStore.boards.forEach(board => {
-      cmds.push({
-        id: `board-${board.id}`,
-        name: `Board: ${board.name}`,
-        description: `Switch to board "${board.name}"`,
-        icon: '📋',
-        action: () => {
-          projectStore.setCurrentBoard(board.id)
-          emit('switch-view', 'board')
-          emit('close')
-        }
-      })
-    })
-  }
 
   return cmds
 })
@@ -167,7 +117,6 @@ watch(searchQuery, () => {
 
 const filteredCommands = computed(() => {
   if (!searchQuery.value) return commands.value
-  
   const query = searchQuery.value.toLowerCase()
   return commands.value.filter(cmd => 
     cmd.name.toLowerCase().includes(query) ||
@@ -176,29 +125,21 @@ const filteredCommands = computed(() => {
 })
 
 function selectNext() {
-  if (selectedIndex.value < filteredCommands.value.length - 1) {
-    selectedIndex.value++
-  }
+  if (selectedIndex.value < filteredCommands.value.length - 1) selectedIndex.value++
 }
 
 function selectPrev() {
-  if (selectedIndex.value > 0) {
-    selectedIndex.value--
-  }
+  if (selectedIndex.value > 0) selectedIndex.value--
 }
 
 function executeSelected() {
   const cmd = filteredCommands.value[selectedIndex.value]
-  if (cmd) {
-    executeCommand(cmd)
-  }
+  if (cmd) executeCommand(cmd)
 }
 
 function executeCommand(cmd: Command) {
   cmd.action()
 }
 
-onMounted(() => {
-  searchInput.value?.focus()
-})
+onMounted(() => searchInput.value?.focus())
 </script>
