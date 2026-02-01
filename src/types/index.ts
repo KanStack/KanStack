@@ -37,7 +37,6 @@ export interface ProjectMeta {
   name: string
   created_at: string
   updated_at: string
-  boards: string[]
   settings: ProjectSettings
 }
 
@@ -94,7 +93,6 @@ export interface Card {
 
 export interface LinkedRef {
   card_id: string
-  board_id: string
   project_id: string
 }
 
@@ -108,7 +106,6 @@ export interface CardWithContext {
   card: Card
   source: {
     project_id: string
-    board_id: string
     project_path: string
     is_available: boolean
   }

@@ -7,7 +7,8 @@ pub struct AppConfig {
     pub app_version: String,
     pub settings: AppSettings,
     pub projects: Vec<ProjectEntry>,
-    pub combined_board_settings: CombinedBoardSettings,
+    #[serde(alias = "combined_board_settings")]
+    pub summary_settings: SummarySettings,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -29,7 +30,7 @@ pub struct ProjectEntry {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CombinedBoardSettings {
+pub struct SummarySettings {
     pub visible_projects: Vec<String>,
     pub filters: FilterSettings,
 }

@@ -1,6 +1,6 @@
 [package]
 name = "kanstack"
-version = "0.0.1"
+version = "0.2.1"
 description = "A local-first kanban board application"
 authors = ["Galen Green"]
 edition = "2021"
@@ -17,6 +17,7 @@ serde_json = "1"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 dirs = "5"
+trash = "5.2.3"
 
 [profile.dev]
 incremental = true
