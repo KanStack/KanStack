@@ -1,108 +1,87 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap");
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+:root {
+    color-scheme: dark;
+    font-family: "JetBrains Mono", monospace;
+    --shade-0: #050505;
+    --shade-1: #0d0d0d;
+    --shade-2: #141414;
+    --shade-3: #242424;
+    --shade-4: #8f8f8f;
+    --shade-5: #f2f2f2;
+    --success-color: #41b66e;
+    --danger-color: #d14b4b;
 }
 
-html, body, #app {
-  height: 100%;
-  overflow: hidden;
+* {
+    box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+    height: 100%;
+    margin: 0;
 }
 
 body {
-  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
-  background-color: #0a0a0a;
-  color: #ffffff;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    background:
+        linear-gradient(transparent 23px, rgba(242, 242, 242, 0.04) 24px),
+        linear-gradient(90deg, transparent 23px, rgba(242, 242, 242, 0.04) 24px),
+        radial-gradient(
+            circle at top,
+            rgba(242, 242, 242, 0.06),
+            transparent 32%
+        ),
+        var(--shade-0);
+    background-size:
+        24px 24px,
+        24px 24px,
+        auto,
+        auto;
+    color: var(--shade-5);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar styling */
+button,
+select {
+    appearance: none;
+    border-radius: 0;
+    cursor: pointer;
+}
+
+button,
+select,
+input,
+textarea {
+    color: inherit;
+}
+
+button,
+select {
+    transition:
+        border-color 140ms ease,
+        transform 140ms ease,
+        background-color 140ms ease;
+}
+
+button:focus-visible,
+select:focus-visible {
+    outline: 1px solid var(--shade-5);
+    outline-offset: 2px;
+}
+
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+    width: 10px;
+    height: 10px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #111111;
+    background: var(--shade-1);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #333333;
-  border-radius: 0;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #555555;
-}
-
-/* Selection styling */
-::selection {
-  background-color: #ffffff;
-  color: #0a0a0a;
-}
-
-/* Focus styling */
-*:focus {
-  outline: 2px solid #ffffff;
-  outline-offset: -2px;
-}
-
-/* Remove default button styles */
-button {
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-/* Utility classes */
-.border-sharp {
-  border-radius: 0;
-}
-
-.terminal-input {
-  background-color: #111111;
-  border: 1px solid #333333;
-  color: #ffffff;
-  padding: 8px 12px;
-  font-family: inherit;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.terminal-input:focus {
-  border-color: #555555;
-}
-
-.terminal-btn {
-  background-color: #111111;
-  border: 1px solid #333333;
-  color: #aaaaaa;
-  padding: 8px 16px;
-  font-family: inherit;
-  font-size: 14px;
-  transition: all 0.15s ease;
-}
-
-.terminal-btn:hover {
-  border-color: #555555;
-  color: #ffffff;
-}
-
-.terminal-btn:focus {
-  border-color: #ffffff;
-  color: #ffffff;
-}
-
-.terminal-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+    background: var(--shade-3);
+    border: 2px solid var(--shade-1);
 }

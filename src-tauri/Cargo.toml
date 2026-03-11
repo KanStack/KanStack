@@ -1,28 +1,23 @@
 [package]
 name = "kanstack"
-version = "0.2.1"
-description = "A local-first kanban board application"
+version = "0.3.0"
+description = "A minimal local-first kanban board viewer"
 authors = ["Galen Green"]
 edition = "2021"
-rust-version = "1.75"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
-tauri-plugin-shell = "2"
+notify = "6"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-uuid = { version = "1", features = ["v4"] }
-chrono = { version = "0.4", features = ["serde"] }
-dirs = "5"
-trash = "5.2.3"
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
 
 [profile.dev]
 incremental = true
 
 [profile.release]
 opt-level = 3
-lto = true
 strip = true
+lto = true
