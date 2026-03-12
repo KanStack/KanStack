@@ -2,7 +2,7 @@
 
 KanStack is a local-first desktop app for working with markdown kanban boards.
 
-It opens a folder that contains `boards/*.md` and `cards/*.md`, renders the board structure, and lets you manage cards and boards from a Tauri + Vue desktop UI.
+It opens a `TODO/` folder, loads `todo.md` plus local cards, and lets you manage nested sub-boards from a Tauri + Vue desktop UI.
 
 ## What it does
 
@@ -27,25 +27,27 @@ npm install
 npm run tauri:dev
 ```
 
-3. When the app opens, choose a workspace folder with `boards/` and `cards/`.
+3. When the app opens, choose a `TODO/` folder that contains `todo.md` and `cards/`.
 
 To try the app with the workspace already in this repo, open `TODO/`.
 
 ## Workspace shape
 
-KanStack expects a markdown workspace like this:
+KanStack expects a board root like this:
 
 ```text
-workspace/
-  boards/
-    main.md
-  cards/
-    some-card.md
+project/
+  TODO/
+    todo.md
+    README.md
+    cards/
+      some-card.md
 ```
 
-- board files control column order and card placement
-- card files hold metadata and long-form content
-- sub-boards are linked from board markdown, not stored in a separate database
+- `todo.md` controls column order, card placement, and saved sub-board links
+- `cards/*.md` holds metadata and long-form content for the current board
+- `README.md` can hold local notes for that board root
+- sub-boards are saved in `## Sub Boards` as relative paths to descendant `TODO/` folders
 
 For a fuller walkthrough of the workspace format, see `TODO/README.md` and `docs/schemas/kanban-parser-schema.ts`.
 

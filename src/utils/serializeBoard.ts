@@ -24,6 +24,7 @@ export interface MoveBoardCardInput {
 
 export interface AddBoardCardInput {
   cardSlug: string
+  cardTarget?: string
   cardTitle?: string
   targetColumnName: string
   targetColumnSlug: string
@@ -33,6 +34,7 @@ export interface AddBoardCardInput {
 
 export interface AddSubBoardInput {
   boardSlug: string
+  boardTarget: string
   boardTitle?: string
 }
 
@@ -70,7 +72,7 @@ export function addBoardCardMarkdown(board: KanbanBoardDocument, input: AddBoard
 
   targetSection.cards.push({
     slug: input.cardSlug,
-    target: `cards/${input.cardSlug}`,
+    target: input.cardTarget ?? `cards/${input.cardSlug}`,
     title: input.cardTitle,
   })
 
@@ -104,10 +106,16 @@ export function addSubBoardMarkdown(board: KanbanBoardDocument, input: AddSubBoa
   const nextBoard = cloneBoard(board)
   nextBoard.subBoards.push({
     slug: input.boardSlug,
-    target: `boards/${input.boardSlug}`,
+    target: input.boardTarget,
     title: input.boardTitle,
   })
 
+  return serializeBoardMarkdown(nextBoard)
+}
+
+export function replaceSubBoardsMarkdown(board: KanbanBoardDocument, subBoards: KanbanBoardLink[]) {
+  const nextBoard = cloneBoard(board)
+  nextBoard.subBoards = subBoards.map((subBoard) => ({ ...subBoard }))
   return serializeBoardMarkdown(nextBoard)
 }
 

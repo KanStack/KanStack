@@ -58,7 +58,7 @@ That file defines the parser target types for boards, cards, settings, sections,
 const board = {
   kind: "board",
   slug: "main",
-  path: "boards/main.md",
+  path: "TODO/todo.md",
   title: "Product Board",
   frontmatter: { title: "Product Board" },
   columns: [

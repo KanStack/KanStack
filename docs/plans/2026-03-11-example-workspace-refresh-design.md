@@ -6,7 +6,7 @@ Replace the existing example workspace with a single realistic board that reflec
 
 ## Shape
 
-- one board only: `Example Workspace/boards/main.md`
+- one board only: `Example Workspace/boards/todo.md`
 - flat columns only: `Backlog`, `In Progress`, `Review`, `Done`
 - no sub-boards
 - no task groups
@@ -39,7 +39,7 @@ Replace the existing example workspace with a single realistic board that reflec
 
 ## Verification
 
-- `Example Workspace/boards/main.md` should reference only card files that exist
+- `Example Workspace/boards/todo.md` should reference only card files that exist
 - no `## Sub Boards` block
 - no `###` subgroup headings
 - cards should map cleanly into the current single-board app model

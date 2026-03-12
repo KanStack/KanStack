@@ -16,7 +16,7 @@ interface CardEditorSession {
 }
 
 interface UseCardEditorOptions {
-  getCardSlugs: () => string[]
+  getBoardCardPaths: (cardPath: string) => string[]
   getSourceBoardSlug: () => string | null
 }
 
@@ -159,15 +159,20 @@ export function useCardEditor(options: UseCardEditorOptions) {
     errorMessage.value = null
 
     try {
-      const renameTarget = getCardRenameTarget(title, session.value.card.slug, options.getCardSlugs())
+      const renameTarget = getCardRenameTarget(
+        title,
+        session.value.card.path,
+        options.getBoardCardPaths(session.value.card.path),
+      )
       let mutation: WorkspaceMutationPayload | null = null
 
       if (title !== session.value.card.title || renameTarget.slug !== session.value.card.slug) {
         const snapshot = await invoke<WorkspaceSnapshot>('rename_card', {
           root: session.value.workspaceRoot,
+          boardPath: `${session.value.card.path.replace(/\/cards\/[^/]+\.md$/i, '')}/todo.md`,
           oldPath: session.value.card.path,
           newPath: renameTarget.path,
-          oldSlug: session.value.card.slug,
+          oldSlug: session.value.card.path,
           newSlug: renameTarget.slug,
           newTitle: title,
           content,
@@ -232,6 +237,7 @@ export function useCardEditor(options: UseCardEditorOptions) {
     try {
       await invoke('delete_card_file', {
         root: session.value.workspaceRoot,
+        boardPath: `${session.value.card.path.replace(/\/cards\/[^/]+\.md$/i, '')}/todo.md`,
         path: session.value.card.path,
         slug: session.value.card.slug
       })

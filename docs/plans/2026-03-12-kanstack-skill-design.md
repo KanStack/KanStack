@@ -34,7 +34,7 @@ Use the skill when work involves:
 ## Repo Sources To Re-Check
 
 - `TODO/README.md`
-- `TODO/boards/main.md`
+- `TODO/todo.md`
 - `TODO/cards/*.md`
 - `lessons.md`
 - `docs/schemas/kanban-parser-schema.ts`

@@ -26,7 +26,12 @@ const emit = defineEmits<{
 }>();
 
 const editor = useCardEditor({
-    getCardSlugs: () => Object.keys(props.cardsBySlug),
+    getBoardCardPaths: (cardPath) => {
+        const boardCardDirectory = cardPath.replace(/\/[^/]+$/, "");
+        return Object.values(props.cardsBySlug)
+            .map((card) => card.path)
+            .filter((path) => path.startsWith(`${boardCardDirectory}/`) || path === cardPath);
+    },
     getSourceBoardSlug: () => props.sourceBoard?.slug ?? null,
 });
 const displayCard = computed(() => props.card ?? editor.session.value?.card ?? null);

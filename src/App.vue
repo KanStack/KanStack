@@ -64,7 +64,7 @@ const emptyStateCopy = computed(() => {
     return errorMessage.value
   }
 
-  return 'Open a local folder with `boards/` and `cards/` to render your board.'
+  return 'Open a local `TODO/` folder with `todo.md` and `cards/` to render your board.'
 })
 
 function createHistoryStateSnapshot(): HistoryStateSnapshot | null {
@@ -148,6 +148,28 @@ async function createSubBoardFromCurrentBoard() {
     selectedCard: after.selectedCard,
   })
   selectedColumnState.value = after.selectedColumnSlug
+}
+
+async function findSubBoardsFromCurrentBoard() {
+  if (!currentBoard.value) {
+    return
+  }
+
+  const snapshot = await appBoardActions.findSubBoards(currentBoard.value)
+  if (!snapshot) {
+    return
+  }
+
+  applyWorkspaceMutation({
+    snapshot,
+    currentBoardSlug: currentBoard.value.slug,
+    selectedCard: selectedCardSlug.value && selectedCardSourceBoard.value
+      ? {
+          slug: selectedCardSlug.value,
+          sourceBoardSlug: selectedCardSourceBoard.value.slug,
+        }
+      : null,
+  })
 }
 
 onMounted(() => {
@@ -607,19 +629,23 @@ async function deleteSelectedCards() {
   const deletions = selectedCards
     .map((selection) => ({
       ...selection,
+      boardPath: workspace.value!.boardsBySlug[selection.sourceBoardSlug]?.path ?? null,
       path: workspace.value!.cardsBySlug[selection.slug]?.path ?? null,
     }))
-    .filter((selection): selection is VisibleBoardCardSelection & { path: string } => Boolean(selection.path))
+    .filter((selection): selection is VisibleBoardCardSelection & { boardPath: string; path: string } => (
+      Boolean(selection.path) && Boolean(selection.boardPath)
+    ))
 
   const after = await executeTrackedAction('Delete Cards', async () => {
     let latestSnapshot: WorkspaceSnapshot | null = null
 
     for (const selection of deletions) {
-      latestSnapshot = await invoke<WorkspaceSnapshot>('delete_card_file', {
-        root: workspace.value!.rootPath,
-        path: selection.path,
-        slug: selection.slug,
-      })
+        latestSnapshot = await invoke<WorkspaceSnapshot>('delete_card_file', {
+          root: workspace.value!.rootPath,
+          boardPath: selection.boardPath,
+          path: selection.path,
+          slug: selection.slug,
+        })
     }
 
     if (!latestSnapshot) {
@@ -671,11 +697,16 @@ async function deleteCurrentBoard() {
   }
 
   const fallbackBoardSlug = boardLineage.value[boardLineage.value.length - 2]?.slug ?? null
+  const parentBoardPath = fallbackBoardSlug ? workspace.value.boardsBySlug[fallbackBoardSlug]?.path ?? null : null
+  if (!parentBoardPath) {
+    showAppMessage('Deleting the opened root board is not supported yet.')
+    return
+  }
   const after = await executeTrackedAction('Delete Board', async () => {
     const snapshot = await invoke<WorkspaceSnapshot>('delete_board', {
       root: workspace.value!.rootPath,
       path: currentBoard.value!.path,
-      slug: currentBoard.value!.slug,
+      parentBoardPath,
     })
 
     return {
@@ -968,6 +999,9 @@ async function dispatchMenuAction(action: string) {
       break
     case 'new-sub-board':
       await createSubBoardFromCurrentBoard()
+      break
+    case 'find-sub-boards':
+      await findSubBoardsFromCurrentBoard()
       break
     case 'new-column':
       await createColumn()

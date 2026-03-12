@@ -34,7 +34,7 @@ Create an OpenCode skill for using KanStack so agents can follow the local KanSt
 ## Review Notes
 
 - Added a project-local OpenCode skill at `.opencode/skills/kanstack/SKILL.md` with repo-specific guidance for using the `TODO/` KanStack workflow.
-- Made the skill explicitly tell agents to re-check repo files like `TODO/README.md`, `TODO/boards/main.md`, `TODO/cards/`, `lessons.md`, and `docs/schemas/kanban-parser-schema.ts` before acting.
+- Made the skill explicitly tell agents to re-check repo files like `TODO/README.md`, `TODO/todo.md`, `TODO/cards/`, `lessons.md`, and `docs/schemas/kanban-parser-schema.ts` before acting.
 - Added a compact design doc in `docs/plans/2026-03-12-kanstack-skill-design.md` to capture the local skill intent and workflow.
 - Added a short rule in `/Users/galengreen/.config/opencode/AGENTS.md` telling agents to load the local `kanstack` skill when available for KanStack-related work.
 

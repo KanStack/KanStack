@@ -237,8 +237,8 @@ export function useWorkspace() {
       ? payload.currentBoardSlug
       : currentBoardSlug.value && nextWorkspace.boardsBySlug[currentBoardSlug.value]
         ? currentBoardSlug.value
-        : nextWorkspace.boardsBySlug.main
-          ? 'main'
+        : nextWorkspace.boardsBySlug[nextWorkspace.rootBoardSlug]
+          ? nextWorkspace.rootBoardSlug
           : nextWorkspace.boardOrder[0] ?? null
     selectedCardSlug.value = payload.selectedCard?.slug && nextWorkspace.cardsBySlug[payload.selectedCard.slug]
       ? payload.selectedCard.slug
@@ -265,8 +265,8 @@ export function useWorkspace() {
     lastSnapshotSignature.value = signature
     currentBoardSlug.value = preserveSelection && currentBoardSlug.value && nextWorkspace.boardsBySlug[currentBoardSlug.value]
       ? currentBoardSlug.value
-      : nextWorkspace.boardsBySlug.main
-        ? 'main'
+      : nextWorkspace.boardsBySlug[nextWorkspace.rootBoardSlug]
+        ? nextWorkspace.rootBoardSlug
         : nextWorkspace.boardOrder[0] ?? null
     selectedCardSlug.value = preserveSelection ? selectedCardSlug.value : null
     selectedCardSourceBoardSlug.value = preserveSelection ? selectedCardSourceBoardSlug.value : null

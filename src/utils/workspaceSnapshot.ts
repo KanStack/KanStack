@@ -1,18 +1,22 @@
 import type { LoadedWorkspace, WorkspaceSnapshot } from '@/types/workspace'
 import { parseWorkspace } from '@/utils/parseWorkspace'
-import { slugFromMarkdownPath } from '@/utils/kanbanPath'
+import { boardIdFromBoardPath } from '@/utils/kanbanPath'
 
 export function buildLoadedWorkspace(snapshot: WorkspaceSnapshot): LoadedWorkspace {
   const parseResult = parseWorkspace(snapshot)
   const boardsBySlug = Object.fromEntries(parseResult.boards.map((board) => [board.slug, board]))
   const boardFilesBySlug = Object.fromEntries(
-    snapshot.boards.map((boardFile) => [slugFromMarkdownPath(boardFile.path), boardFile]),
+    snapshot.boards.map((boardFile) => [boardIdFromBoardPath(boardFile.path), boardFile]),
   )
-  const cardsBySlug = Object.fromEntries(parseResult.cards.map((card) => [card.slug, card]))
+  const cardsBySlug = Object.fromEntries(
+    parseResult.cards.map((card) => [card.slug, card]),
+  )
   const boardOrder = parseResult.boards.map((board) => board.slug)
+  const rootBoardSlug = boardIdFromBoardPath(snapshot.rootBoardPath)
 
   return {
     rootPath: snapshot.rootPath,
+    rootBoardSlug,
     snapshot,
     parseResult,
     boardsBySlug,
@@ -24,6 +28,7 @@ export function buildLoadedWorkspace(snapshot: WorkspaceSnapshot): LoadedWorkspa
 
 export function createWorkspaceSnapshotSignature(snapshot: WorkspaceSnapshot) {
   return JSON.stringify({
+    rootBoardPath: snapshot.rootBoardPath,
     boards: snapshot.boards,
     cards: snapshot.cards,
   })

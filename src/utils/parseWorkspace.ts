@@ -16,7 +16,16 @@ import type {
   MarkdownValue
 } from '@docs/schemas/kanban-parser-schema'
 import type { WorkspaceSnapshot } from '@/types/workspace'
-import { normalizeWikiTarget, slugFromMarkdownPath, slugifySegment } from '@/utils/kanbanPath'
+import {
+  boardIdFromBoardPath,
+  cardIdFromCardPath,
+  localBoardNameFromBoardPath,
+  normalizeWikiTarget,
+  resolveBoardTargetPath,
+  resolveCardTargetId,
+  slugFromMarkdownPath,
+  slugifySegment,
+} from '@/utils/kanbanPath'
 
 export function parseWorkspace(snapshot: WorkspaceSnapshot): KanbanParseResult {
   const boards = snapshot.boards.map((file) => parseBoardFile(file.path, file.content))
@@ -33,9 +42,9 @@ export function parseWorkspace(snapshot: WorkspaceSnapshot): KanbanParseResult {
 function parseBoardFile(path: string, rawContent: string): KanbanBoardDocument {
   const diagnostics: KanbanDiagnostic[] = []
   const parsed = parseFrontmatter(rawContent, path, diagnostics)
-  const slug = slugFromMarkdownPath(path)
+  const slug = boardIdFromBoardPath(path)
   const frontmatter = toMarkdownRecord(parsed.data)
-  const title = readString(frontmatter.title) ?? readHeading(parsed.content, '# ') ?? titleFromSlug(slug)
+  const title = readString(frontmatter.title) ?? readHeading(parsed.content, '# ') ?? localBoardNameFromBoardPath(path)
   const lines = parsed.content.split(/\r?\n/)
   const columns: KanbanColumn[] = []
   const subBoards: KanbanBoardLink[] = []
@@ -98,7 +107,7 @@ function parseBoardFile(path: string, rawContent: string): KanbanBoardDocument {
       continue
     }
 
-    const wikiTarget = parseBulletWikiLink(trimmed)
+    const wikiTarget = parseBulletWikiLink(trimmed, path, inSubBoards ? 'board' : 'card')
     if (!wikiTarget) {
       continue
     }
@@ -150,9 +159,9 @@ function parseBoardFile(path: string, rawContent: string): KanbanBoardDocument {
 function parseCardFile(path: string, rawContent: string): KanbanCardDocument {
   const diagnostics: KanbanDiagnostic[] = []
   const parsed = parseFrontmatter(rawContent, path, diagnostics)
-  const slug = slugFromMarkdownPath(path)
+  const slug = cardIdFromCardPath(path)
   const metadata = toMarkdownRecord(parsed.data) as KanbanCardMetadata
-  const title = readString(metadata.title) ?? readHeading(parsed.content, '# ') ?? titleFromSlug(slug)
+  const title = readString(metadata.title) ?? readHeading(parsed.content, '# ') ?? titleFromSlug(slugFromMarkdownPath(path))
   const body = stripLeadingTitle(parsed.content, title).trim()
   const sections = parseCardSections(body)
 
@@ -267,13 +276,48 @@ function ensureUnnamedSection(column: KanbanColumn) {
   return section
 }
 
-function parseBulletWikiLink(line: string): KanbanCardLink | null {
+function parseBulletWikiLink(
+  line: string,
+  boardPath: string,
+  kind: 'board' | 'card',
+): KanbanCardLink | KanbanBoardLink | null {
   const match = line.match(/^[-*]\s+\[\[([^\]]+)\]\]/)
   if (!match) {
     return null
   }
 
-  return normalizeWikiTarget(match[1])
+  const normalized = normalizeWikiTarget(match[1])
+
+  if (kind === 'board') {
+    const resolvedSlug = safeResolveBoardTargetPath(boardPath, normalized.target)
+    return {
+      slug: resolvedSlug,
+      target: normalized.target,
+      title: normalized.title,
+    }
+  }
+
+  return {
+    slug: safeResolveCardTargetId(boardPath, normalized.target),
+    target: normalized.target.startsWith('cards/') ? normalized.target : `cards/${normalized.target}`,
+    title: normalized.title,
+  }
+}
+
+function safeResolveBoardTargetPath(boardPath: string, target: string) {
+  try {
+    return resolveBoardTargetPath(boardPath, target)
+  } catch {
+    return normalizeWikiTarget(target).target
+  }
+}
+
+function safeResolveCardTargetId(boardPath: string, target: string) {
+  try {
+    return resolveCardTargetId(boardPath, target)
+  } catch {
+    return normalizeWikiTarget(target).target
+  }
 }
 
 function extractChecklist(markdown: string): KanbanChecklistItem[] {

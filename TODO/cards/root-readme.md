@@ -30,7 +30,7 @@ Create a simple root `README.md` so the repo has a clear entry point for what Ka
 
 - Added a new root `README.md` that explains what KanStack is, how to start the Tauri app, and how to open the repo's `TODO/` workspace.
 - Kept the README user-first, then pointed contributors to the main commands and core repo folders.
-- Fixed the local KanStack docs and skill references to use `TODO/boards/main.md` and restored `lessons.md` as the lessons location.
+- Fixed the local KanStack docs and skill references to use `TODO/todo.md` and restored `lessons.md` as the lessons location.
 
 ## Verification
 

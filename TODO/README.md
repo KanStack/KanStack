@@ -4,7 +4,7 @@ This folder is the KanStack workspace for agent-driven work.
 
 ## What lives here
 
-- `boards/main.md`: the board that tracks active work
+- `todo.md`: the board that tracks active work
 - `cards/*.md`: one markdown file per task/card
 - `lessons.md`: reusable lessons captured after correction loops
 - 
@@ -19,7 +19,7 @@ This folder is the KanStack workspace for agent-driven work.
 
 ## Quick start
 
-1. Open or edit `TODO/boards/main.md`.
+1. Open or edit `TODO/todo.md`.
 2. Add a wikilink for your card under `Backlog`.
 3. Create `TODO/cards/<slug>.md` for the work.
 4. Put the spec and checkable steps in the card before coding.
@@ -28,6 +28,7 @@ This folder is the KanStack workspace for agent-driven work.
 ## Board structure
 
 - Board placement is canonical: the board file controls column order, section order, and card status.
+- The canonical board file for a board root is `todo.md`.
 - Set the board title in frontmatter `title`; a first `#` heading can also supply the title if needed.
 - Use `##` headings for columns like `Backlog`, `In Progress`, `Review`, `Done`, and `Archive`.
 - Use optional `###` headings for sections inside a column.
@@ -80,7 +81,7 @@ title: Product Board
 
 ## Sub Boards
 
-- [[boards/release-readiness|Release Readiness]]
+- [[release-readiness/TODO|Release Readiness]]
 ````
 
 Board notes:
@@ -88,7 +89,7 @@ Board notes:
 - Keep one bullet per linked card or sub-board.
 - Match each card wikilink slug to the card filename.
 - `## Sub Boards` is special; it is not a normal card column.
-- `show-sub-boards` controls rolled-up descendant cards in the board view; `## Sub Boards` still stores the canonical board links.
+- `show-sub-boards` controls rolled-up descendant cards in the board view; `## Sub Boards` still stores the canonical relative `TODO/` paths.
 - The current app usually writes the settings block near the top, after frontmatter, and can append one when adding settings to a board that did not already have a block.
 - Unknown settings keys are preserved when the board is parsed and serialized.
 

@@ -57,7 +57,7 @@ Represent the Kanban board entirely in markdown while keeping board order and ca
 
 ## Demo Files
 
-- `boards/main.md`
+- `boards/todo.md`
 - `boards/auth-flow.md`
 - `boards/auth-testing.md`
 - `cards/session-model.md`

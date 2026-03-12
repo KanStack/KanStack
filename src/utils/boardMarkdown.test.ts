@@ -13,7 +13,7 @@ import {
   renameBoardMarkdown,
 } from '@/utils/serializeBoard'
 
-const BOARD_PATH = 'boards/main.md'
+const BOARD_PATH = 'TODO/todo.md'
 
 describe('board markdown contract', () => {
   it('parses named sections without flattening them away', () => {
@@ -34,8 +34,8 @@ describe('board markdown contract', () => {
       name: section.name,
       cards: section.cards.map((card) => card.slug),
     }))).toEqual([
-      { name: null, cards: ['a'] },
-      { name: 'Review', cards: ['b'] },
+      { name: null, cards: ['TODO/cards/a'] },
+      { name: 'Review', cards: ['TODO/cards/b'] },
     ])
   })
 
@@ -59,7 +59,7 @@ describe('board markdown contract', () => {
     ].join('\n'))
 
     const nextContent = moveBoardCardMarkdown(board, {
-      cardSlug: 'a',
+      cardSlug: 'TODO/cards/a',
       targetColumnName: 'Todo',
       targetColumnSlug: 'todo',
       targetSectionName: 'Review',
@@ -75,7 +75,7 @@ describe('board markdown contract', () => {
       name: section.name,
       cards: section.cards.map((card) => card.slug),
     }))).toEqual([
-      { name: 'Review', cards: ['a', 'b'] },
+      { name: 'Review', cards: ['TODO/cards/a', 'TODO/cards/b'] },
     ])
     expect(reparsedBoard.settings?.['show-sub-boards']).toBe(true)
     expect(reparsedBoard.settings?.['show-archive-column']).toBe(true)
@@ -90,7 +90,7 @@ describe('board markdown contract', () => {
       '- [[cards/a]]',
     ].join('\n'))
 
-    const nextContent = archiveBoardCardMarkdown(board, 'a')
+    const nextContent = archiveBoardCardMarkdown(board, 'TODO/cards/a')
 
     expect(nextContent).toContain('## Archive')
 
@@ -100,7 +100,7 @@ describe('board markdown contract', () => {
       cards: column.sections.flatMap((section) => section.cards.map((card) => card.slug)),
     }))).toEqual([
       { slug: 'todo', cards: [] },
-      { slug: 'archive', cards: ['a'] },
+      { slug: 'archive', cards: ['TODO/cards/a'] },
     ])
   })
 
@@ -118,15 +118,16 @@ describe('board markdown contract', () => {
     ].join('\n'))
 
     const parentContent = addSubBoardMarkdown(board, {
-      boardSlug: 'untitled-board',
+      boardSlug: 'untitled-board/TODO',
+      boardTarget: 'untitled-board/TODO',
       boardTitle: 'Untitled Board',
     })
     const childContent = createBoardMarkdown('Untitled Board', board)
 
     expect(parentContent).toContain('## Sub Boards')
-    expect(parentContent).toContain('- [[boards/untitled-board|Untitled Board]]')
+    expect(parentContent).toContain('- [[untitled-board/TODO|Untitled Board]]')
 
-    const childBoard = parseBoard(childContent, 'boards/untitled-board.md')
+    const childBoard = parseBoard(childContent, 'untitled-board/TODO/todo.md')
     expect(childBoard.title).toBe('Untitled Board')
     expect(childBoard.columns.map((column) => ({
       name: column.name,
@@ -173,7 +174,7 @@ describe('board markdown contract', () => {
 
     const withoutColumn = parseBoard(deleteBoardColumnMarkdown(renamedColumn, 'in-progress'))
     expect(withoutColumn.columns.map((column) => column.slug)).toEqual(['todo'])
-    expect(withoutColumn.columns[0].sections[0].cards.map((card) => card.slug)).toEqual(['a'])
+    expect(withoutColumn.columns[0].sections[0].cards.map((card) => card.slug)).toEqual(['TODO/cards/a'])
   })
 
   it('keeps archive last for added and reordered columns', () => {
@@ -195,7 +196,8 @@ describe('board markdown contract', () => {
 
 function parseBoard(content: string, path = BOARD_PATH) {
   return parseWorkspace({
-    rootPath: '/tmp/workspace',
+    rootPath: '/tmp/workspace/TODO',
+    rootBoardPath: BOARD_PATH,
     boards: [{ path, content }],
     cards: [],
   }).boards[0]

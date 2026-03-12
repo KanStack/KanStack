@@ -7,6 +7,7 @@ export interface WorkspaceFileSnapshot {
 
 export interface WorkspaceSnapshot {
   rootPath: string
+  rootBoardPath: string
   boards: WorkspaceFileSnapshot[]
   cards: WorkspaceFileSnapshot[]
 }
@@ -29,6 +30,7 @@ export interface WorkspaceMutationPayload {
 
 export interface LoadedWorkspace {
   rootPath: string
+  rootBoardSlug: string
   snapshot: WorkspaceSnapshot
   parseResult: KanbanParseResult
   boardsBySlug: Record<string, KanbanBoardDocument>

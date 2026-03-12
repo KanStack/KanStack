@@ -1,4 +1,5 @@
-import { boardSlugFromTitle, cardSlugFromTitle, getNextAvailableSlug } from '@/utils/slug'
+import { cardSlugFromTitle, getNextAvailableSlug } from '@/utils/slug'
+import { cardIdFromCardPath, dirnameRelativePath, localCardSlugFromCardPath } from '@/utils/kanbanPath'
 
 export interface RenameTarget {
   path: string
@@ -6,29 +7,18 @@ export interface RenameTarget {
   title: string
 }
 
-export function getBoardRenameTarget(title: string, currentSlug: string, existingSlugs: string[]) {
-  return getRenameTarget(title, currentSlug, existingSlugs, boardSlugFromTitle, 'boards')
-}
-
-export function getCardRenameTarget(title: string, currentSlug: string, existingSlugs: string[]) {
-  return getRenameTarget(title, currentSlug, existingSlugs, cardSlugFromTitle, 'cards')
-}
-
-function getRenameTarget(
-  title: string,
-  currentSlug: string,
-  existingSlugs: string[],
-  slugFromTitle: (title: string) => string,
-  directory: 'boards' | 'cards',
-): RenameTarget {
+export function getCardRenameTarget(title: string, currentPath: string, existingPaths: string[]): RenameTarget {
   const normalizedTitle = title.trim()
-  const baseSlug = slugFromTitle(normalizedTitle)
-  const siblingSlugs = existingSlugs.filter((slug) => slug !== currentSlug)
+  const baseSlug = cardSlugFromTitle(normalizedTitle)
+  const siblingSlugs = existingPaths
+    .filter((path) => path !== currentPath)
+    .map((path) => localCardSlugFromCardPath(path))
   const slug = getNextAvailableSlug(baseSlug, siblingSlugs)
+  const path = `${dirnameRelativePath(currentPath)}/${slug}.md`
 
   return {
     title: normalizedTitle,
-    slug,
-    path: `${directory}/${slug}.md`,
+    slug: cardIdFromCardPath(path),
+    path,
   }
 }
