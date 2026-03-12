@@ -16,13 +16,13 @@ That file defines the parser target types for boards, cards, settings, sections,
 
 - parse frontmatter into `frontmatter`
 - derive `slug` from the filename without `.md`
-- use the first `#` heading as `title`; fall back to frontmatter `title` if needed
+- use frontmatter `title` as the canonical title; fall back to the first `#` heading if needed
 - parse each `##` heading as either a normal column or the special `Sub Boards` block
 - inside a normal column, parse each `###` heading as a section
 - if cards appear directly under a column before any `###` heading, normalize them into an implicit section with `name: null`
 - parse each card bullet as a `KanbanCardLink`
 - parse `## Sub Boards` bullets as `KanbanBoardLink[]`
-- parse the footer `%% kanban:settings` fenced JSON block into `settings`
+- parse any `%% kanban:settings` fenced JSON block into `settings`
 
 ### Card Files
 
@@ -30,25 +30,27 @@ That file defines the parser target types for boards, cards, settings, sections,
 - derive `slug` from the filename without `.md`
 - use frontmatter `title` as the canonical title; fall back to the first `#` heading if needed
 - preserve unknown frontmatter keys in `metadata`
-- parse the full markdown body after frontmatter into `body`
+- remove a matching leading `# <title>` heading from the markdown body before storing `body`
 - split `##` sections into `sections[]`
 - collect checklist items from the whole card into `checklist[]`
-- collect wikilinks from frontmatter-derived relationship lists and markdown body into `wikilinks[]`
+- collect wikilinks from markdown body content into `wikilinks[]`
 
 ### Diagnostics
 
-- unresolved wikilinks should emit warnings, not hard failures
-- malformed settings JSON should emit an error on the board document
-- duplicate board or card slugs should emit errors
-- invalid heading hierarchy should emit warnings with file path and line number when available
+- `frontmatter.unclosed`: warning when frontmatter starts with `---` but never closes
+- `board.card-outside-column`: warning when a card link appears before any `##` column
+- `board.no-columns`: warning when a board has no `##` columns
+- `board.invalid-settings`: warning when the settings JSON cannot be parsed
 
 ## Normalization Notes
 
 - board structure is canonical for column placement and ordering
 - sub-boards are not columns and should stay in `subBoards`
-- card relationship fields like `blocked_by`, `blocks`, `related`, and `parent_card` are slug-based
+- card relationship fields like `blocked_by`, `blocks`, and `related` are slug-based when present in frontmatter
 - unknown settings keys and unknown card metadata keys must survive round trips
 - explicit card IDs are not part of the schema; filenames and wikilink slugs are the stable references
+- normalized wikilink targets are extensionless, for example `cards/auth` and `boards/release-readiness`
+- `column-settings` keys are treated as column slugs by the current serializer helpers
 
 ## Example Board Result
 
@@ -70,19 +72,19 @@ const board = {
           slug: "auth",
           index: 0,
           cards: [
-            { slug: "session-model", target: "cards/session-model.md" },
-            { slug: "auth", target: "cards/auth.md" }
+            { slug: "session-model", target: "cards/session-model" },
+            { slug: "auth", target: "cards/auth" }
           ]
         }
       ]
     }
   ],
-  subBoards: [{ slug: "auth-flow", target: "boards/auth-flow.md" }],
+  subBoards: [{ slug: "auth-flow", target: "boards/auth-flow" }],
   settings: {
     "sort-order": "manual",
     "group-by": "section",
     "column-settings": {
-      "In Progress": { "wip-limit": 2 }
+      "in-progress": { "wip-limit": 2 }
     }
   },
   diagnostics: []
@@ -105,7 +107,7 @@ const card = {
     related: ["oauth-spike"],
     story_points: 8
   },
-  body: "# Implement authentication\n\nAdd local-first email and password authentication for the desktop app.",
+  body: "Add local-first email and password authentication for the desktop app.\n\n## Checklist\n\n- [ ] Define auth state model\n- [ ] Build login form",
   sections: [
     {
       name: "Checklist",
@@ -123,13 +125,13 @@ const card = {
     { text: "Define auth state model", checked: false },
     { text: "Build login form", checked: false }
   ],
-  wikilinks: ["session-model", "oauth-spike"],
+  wikilinks: [],
   diagnostics: []
 } satisfies import("../schemas/kanban-parser-schema").KanbanCardDocument
 ```
 
 ## Recommended Next Step
 
-- implement a loader that emits `KanbanParseResult`
-- validate board settings JSON before applying inheritance
-- add fixture files that cover direct column cards, explicit sections, sub-boards, and unresolved links
+- add focused tests for title precedence, extensionless targets, stripped card title headings, and current diagnostics
+- add link validation only when the app is ready to surface unresolved-link diagnostics clearly
+- decide whether broader proposal-era settings should stay as untyped preserved keys or gain full runtime behavior

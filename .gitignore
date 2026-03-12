@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 package-lock.json
+.opencode/node_modules/
+.opencode/package.json
+.opencode/bun.lock
+.opencode/.gitignore
 
 # Build outputs
 dist/

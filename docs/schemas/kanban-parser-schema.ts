@@ -72,10 +72,6 @@ export interface KanbanBoardSettings extends MarkdownRecord {
   "card-preview"?: "none" | "metadata" | "body"
   "list-collapse"?: boolean[]
   "column-settings"?: Record<string, KanbanColumnSettings>
-  defaults?: KanbanCardDefaults
-  inherit?: KanbanInheritanceSettings
-  "saved-views"?: KanbanSavedView[]
-  "card-badges"?: string[]
 }
 
 export interface KanbanColumnSettings extends MarkdownRecord {
@@ -84,26 +80,6 @@ export interface KanbanColumnSettings extends MarkdownRecord {
   collapsed?: boolean
   "default-section"?: string
   hidden?: boolean
-}
-
-export interface KanbanInheritanceSettings extends MarkdownRecord {
-  defaults?: boolean
-  "saved-views"?: boolean
-}
-
-export interface KanbanSavedView extends MarkdownRecord {
-  name: string
-  filter: MarkdownRecord
-}
-
-export interface KanbanCardDefaults extends MarkdownRecord {
-  title?: string
-  type?: "task" | "bug" | "feature" | "research" | "chore"
-  priority?: "low" | "medium" | "high"
-  tags?: string[]
-  assignee?: string
-  owners?: string[]
-  estimate?: number
 }
 
 export interface KanbanCardDocument {

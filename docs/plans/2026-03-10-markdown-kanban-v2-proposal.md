@@ -1,5 +1,9 @@
 # Markdown Kanban v2 Proposal
 
+This file is forward-looking design work. It is not the shipped contract for the current app.
+
+Today the app actively uses `show-sub-boards` and `show-archive-column`, preserves a broader set of settings and metadata, and does not yet implement the proposal features below.
+
 ## Goal
 
 Extend the current markdown-first Kanban schema with richer planning features while keeping boards easy to read, diff, and edit by hand.
@@ -8,7 +12,7 @@ Extend the current markdown-first Kanban schema with richer planning features wh
 
 - keep `boards/*.md` as the source of truth for column order, section order, and sub-board links
 - keep `cards/*.md` as the source of truth for task metadata and long-form content
-- put board behavior in the footer `%% kanban:settings` JSON block
+- keep board behavior in the `%% kanban:settings` JSON block
 - prefer additive metadata over new custom markdown syntax
 
 ## Recommended v2 Features
@@ -20,9 +24,9 @@ Add commonly needed planning fields to card frontmatter:
 - `type`: `task`, `bug`, `feature`, `research`, `chore`
 - `status`: optional derived cache only; board placement stays canonical
 - `estimate`: numeric size estimate
-- `blocked_by`: list of card IDs
-- `blocks`: list of card IDs
-- `related`: list of card IDs
+- `blocked_by`: list of card slugs
+- `blocks`: list of card slugs
+- `related`: list of card slugs
 - `owners`: list of people when a card has multiple contributors
 - `completed`, `started`, `scheduled`: optional dates
 
@@ -47,7 +51,7 @@ updated: 2026-03-10
 
 ### 2. Column Metadata in Board Settings
 
-Add optional per-column configuration to the board footer settings block:
+Add optional per-column configuration to the board settings block:
 
 - WIP limits
 - column collapse state
@@ -59,9 +63,9 @@ Example:
 ```json
 {
   "column-settings": {
-    "Backlog": { "sort-order": "manual" },
-    "In Progress": { "wip-limit": 3 },
-    "Review": { "wip-limit": 2, "collapsed": false }
+    "backlog": { "sort-order": "manual" },
+    "in-progress": { "wip-limit": 3 },
+    "review": { "wip-limit": 2, "collapsed": false }
   }
 }
 ```
@@ -141,7 +145,7 @@ Allow one card to appear on multiple boards without duplication.
 Recommendation:
 
 - board links remain normal `[[card]]` entries
-- card frontmatter adds `mirrors: [board-id]` only as helper metadata
+- card frontmatter adds `mirrors: [board-slug]` only as helper metadata
 - board placement is still explicit in each board file so nothing becomes implicit or hard to diff
 
 ### 8. Custom Fields
@@ -179,8 +183,8 @@ This gives the biggest product win without changing the basic markdown shape.
   "card-preview": "none",
   "list-collapse": [false, false, false, false, false],
   "column-settings": {
-    "In Progress": { "wip-limit": 3 },
-    "Review": { "wip-limit": 2 }
+    "in-progress": { "wip-limit": 3 },
+    "review": { "wip-limit": 2 }
   },
   "defaults": {
     "type": "task",
@@ -205,13 +209,13 @@ This gives the biggest product win without changing the basic markdown shape.
 
 - no embedded databases or non-markdown storage
 - no automatic implicit board membership from card metadata alone
-- no custom parser syntax beyond headings, wikilinks, frontmatter, task lists, and the footer JSON block
+- no custom parser syntax beyond headings, wikilinks, frontmatter, task lists, and the settings JSON block
 
 ## Next Step
 
 Define the exact allowed keys and normalization rules for:
 
 - card frontmatter
-- board footer settings
+- board settings
 - inheritance behavior
 - saved-view filters

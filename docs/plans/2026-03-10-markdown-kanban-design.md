@@ -33,10 +33,10 @@ Represent the Kanban board entirely in markdown while keeping board order and ca
 
 ## Preferences Rules
 
-- board preferences live in a footer comment block using the Obsidian-style `%% kanban:settings` wrapper
+- board preferences live in a `%% kanban:settings` block using the Obsidian-style wrapper
 - the settings payload is a fenced `json` block so it stays easy to parse and easy to preserve
 - example preferences include sort order, grouping mode, card preview mode, empty-column visibility, and list-collapse state
-- v2 settings may also include `column-settings`, `defaults`, `inherit`, and `saved-views`
+- `column-settings` are supported as preserved settings and keyed by column slug in current serializer helpers
 - unknown preferences should be preserved during save so boards can evolve without migrations
 
 ## Card Rules
@@ -44,7 +44,7 @@ Represent the Kanban board entirely in markdown while keeping board order and ca
 - each card is a standalone markdown file with frontmatter for structured fields
 - card body stores description, checklist, notes, and relationships
 - card files should not duplicate column status because status comes from board placement
-- v2 card frontmatter may include `type`, `estimate`, `owners`, `blocked_by`, `blocks`, `related`, `scheduled`, `started`, and `completed`
+- current card frontmatter may include `type`, `estimate`, `owners`, `blocked_by`, `blocks`, `related`, `scheduled`, `started`, and `completed`
 - unknown frontmatter keys should be preserved so custom fields like `story_points`, `initiative`, or `parent_card` survive round trips
 - relationships between cards can use wikilinks inside sections like `## Depends On` or `## Links`
 
@@ -52,7 +52,7 @@ Represent the Kanban board entirely in markdown while keeping board order and ca
 
 - a sub-board is just another board note referenced from a parent board's `## Sub Boards` section
 - sub-boards keep the same schema as any other board and can themselves have `## Sub Boards`
-- `parent_board` in frontmatter is optional helper metadata; the parent board link remains the canonical relationship
+- helper metadata like `parent_board` may exist in frontmatter, but the parent board link remains the canonical relationship
 - use board links for board-to-board relationships and card links for column membership
 
 ## Demo Files
