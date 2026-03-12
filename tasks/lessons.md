@@ -34,3 +34,11 @@
 - When the product no longer wants task groups, flatten sections at the parser/view/serializer layers together instead of trying to hide them only in the UI.
 - For card deletion, remove the card file and its board bullets together so the board UI cannot keep referencing a deleted card.
 - For example/demo workspaces, prefer the user's requested kanban vocabulary and column set over a newly proposed board structure.
+
+## 2026-03-11
+
+- When a board column uses a bottom drop surface for drag-and-drop, make the final drop surface stretch to fill the remaining column height so the empty lower area stays a valid target.
+- When users expect title edits to behave like true renames, preserve filename/slug updates and selection continuity; do not quietly regress to title-only edits.
+- For commands that return a fresh workspace snapshot used to preserve live selection, avoid also emitting a workspace refresh event that can race in first and clear UI state.
+- During watcher-driven refreshes, do not eagerly clear selected rename targets that may be temporarily missing mid-rename; let the active editor/session bridge that gap.
+- For layered Escape behavior, prioritize dismissing the most foreground UI first (editor before selection clearing, selection before background panels) so shortcuts match desktop expectations.

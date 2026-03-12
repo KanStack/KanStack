@@ -1,18 +1,31 @@
 <script setup lang="ts">
-import { computed, shallowRef, watch } from "vue";
-import { invoke } from '@tauri-apps/api/core'
+import {
+    computed,
+    nextTick,
+    onMounted,
+    onUnmounted,
+    shallowRef,
+    watch,
+} from "vue";
 
 import type {
     KanbanBoardDocument,
-    KanbanBoardSettings,
     KanbanCardDocument,
 } from "@docs/schemas/kanban-parser-schema";
+import {
+    SHOW_ARCHIVE_COLUMN_SETTING,
+    isArchiveColumnSlug,
+} from "@/utils/archiveColumn";
+import { useBoardColumnDrag } from "@/composables/useBoardColumnDrag";
+import {
+    useBoardPointerDrag,
+    type BoardPointerDropTarget,
+} from "@/composables/useBoardPointerDrag";
+import type {
+    VisibleBoardCardSelection,
+    WorkspaceCardSelection,
+} from "@/types/workspace";
 import { buildBoardView } from "@/utils/buildBoardView";
-import { useBoardPointerDrag, type BoardPointerDropTarget } from '@/composables/useBoardPointerDrag'
-import { addBoardCardMarkdown, moveBoardCardMarkdown } from '@/utils/serializeBoard'
-import { serializeCardMarkdown } from '@/utils/serializeCard'
-import { cardSlugFromTitle, getNextAvailableSlug } from '@/utils/slug'
-import { updateBoardSettingsMarkdown } from '@/utils/serializeBoardSettings'
 
 import BoardColumn from "./BoardColumn.vue";
 
@@ -21,19 +34,68 @@ const props = defineProps<{
     boardsBySlug: Record<string, KanbanBoardDocument>;
     boardFilesBySlug: Record<string, { content: string; path: string }>;
     cardsBySlug: Record<string, KanbanCardDocument>;
+    selectedColumnSlug: string | null;
+    selectedCardKeys: string[];
     workspaceRoot: string | null;
 }>();
 
 const emit = defineEmits<{
-    selectBoard: [slug: string];
-    selectCard: [slug: string];
+    activateCard: [
+        payload: {
+            metaKey: boolean;
+            shiftKey: boolean;
+            selection: WorkspaceCardSelection;
+        },
+    ];
+    addColumn: [];
+    clearSelections: [];
+    createCard: [];
+    moveCard: [payload: {
+        cardSlug: string;
+        sourceBoardSlug: string;
+        targetColumnName: string;
+        targetColumnSlug: string;
+        targetSectionName: string | null;
+        targetSectionSlug: string | null;
+        targetIndex: number;
+    }];
+    openCard: [selection: WorkspaceCardSelection];
+    reorderColumns: [payload: { draggedSlug: string; targetIndex: number }];
+    renameBoard: [title: string];
+    renameColumn: [payload: { name: string; slug: string }];
+    selectColumn: [slug: string];
+    toggleArchiveColumn: [];
+    toggleSubBoards: [];
+    updateVisibleCards: [cards: VisibleBoardCardSelection[]];
 }>();
 
-const includeSubBoards = shallowRef(props.board.settings?.["show-sub-boards"] ?? true);
-const isMovingCard = shallowRef(false);
-const isSavingPreference = shallowRef(false);
+const includeSubBoards = shallowRef(
+    props.board.settings?.["show-sub-boards"] ?? true,
+);
+const showArchiveColumn = shallowRef(
+    props.board.settings?.[SHOW_ARCHIVE_COLUMN_SETTING] ?? false,
+);
+const isEditingTitle = shallowRef(false);
+const boardTitleDraft = shallowRef(props.board.title);
+const boardTitleInput = shallowRef<HTMLInputElement | null>(null);
+const boardCanvasEl = shallowRef<HTMLElement | null>(null);
+const isRenamingBoard = shallowRef(false);
+
 const boardView = computed(() =>
     buildBoardView(props.board, props.boardsBySlug, includeSubBoards.value),
+);
+const visibleColumns = computed(() =>
+    showArchiveColumn.value
+        ? boardView.value.columns
+        : boardView.value.columns.filter(
+              (column) => !isArchiveColumnSlug(column.slug),
+            ),
+);
+const movableColumns = computed(() =>
+    visibleColumns.value.filter((column) => !isArchiveColumnSlug(column.slug)),
+);
+const archiveColumn = computed(
+    () => visibleColumns.value.find((column) => isArchiveColumnSlug(column.slug)) ?? null,
 );
 const activeDropTarget = computed(() => {
     if (
@@ -41,7 +103,7 @@ const activeDropTarget = computed(() => {
         drag.state.insertSectionKey === null ||
         drag.state.insertDisplayIndex === null
     ) {
-        return null
+        return null;
     }
 
     return {
@@ -49,192 +111,258 @@ const activeDropTarget = computed(() => {
         sectionKey: drag.state.insertSectionKey,
         displayIndex: drag.state.insertDisplayIndex,
         surfaceId: drag.state.insertSurfaceId,
-    }
-})
+    };
+});
 const rollupBoardCount = computed(
-    () => buildBoardView(props.board, props.boardsBySlug, true).descendantBoardCount,
+    () =>
+        buildBoardView(props.board, props.boardsBySlug, true)
+            .descendantBoardCount,
 );
+const columnDrag = useBoardColumnDrag(async (draggedSlug, targetIndex) => {
+    emit("reorderColumns", { draggedSlug, targetIndex });
+});
 
 const drag = useBoardPointerDrag(async (item, target) => {
-    console.debug('[kanstack:pointer-drag:drop]', {
-        item,
-        target,
-        currentBoardSlug: props.board.slug,
-    })
-
-    if (!props.workspaceRoot || isMovingCard.value) {
-        return
-    }
-
-    const ownerBoard = props.boardsBySlug[item.sourceBoardSlug]
-    const ownerBoardFile = props.boardFilesBySlug[item.sourceBoardSlug]
-    if (!ownerBoard || !ownerBoardFile) {
-        console.debug('[kanstack:pointer-drag:missing-owner]', {
-            sourceBoardSlug: item.sourceBoardSlug,
-            hasOwnerBoard: Boolean(ownerBoard),
-            hasOwnerBoardFile: Boolean(ownerBoardFile),
-        })
-        return
-    }
-
-    const displayCards = getDisplayCardsForTarget(target)
+    const displayCards = getDisplayCardsForTarget(target);
     const targetIndex = displayCards
         .slice(0, target.displayIndex)
         .filter(
             (card) =>
                 card.sourceBoardSlug === item.sourceBoardSlug &&
                 card.slug !== item.slug,
-        ).length
+        ).length;
 
-    console.debug('[kanstack:pointer-drag:target-index]', {
+    emit("moveCard", {
         cardSlug: item.slug,
         sourceBoardSlug: item.sourceBoardSlug,
-        target,
-        displayCards: displayCards.map((card) => ({
-            slug: card.slug,
-            sourceBoardSlug: card.sourceBoardSlug,
-        })),
-        targetIndex,
-    })
-
-    const nextContent = moveBoardCardMarkdown(ownerBoard, {
-        cardSlug: item.slug,
         targetColumnName: target.columnName,
         targetColumnSlug: target.columnSlug,
         targetSectionName: target.sectionName,
         targetSectionSlug: target.sectionSlug,
         targetIndex,
-    })
+    });
+});
 
-    isMovingCard.value = true
+async function startBoardTitleEdit() {
+    boardTitleDraft.value = props.board.title;
+    isEditingTitle.value = true;
+    await nextTick();
+    boardTitleInput.value?.focus();
+    boardTitleInput.value?.select();
+}
 
+function cancelBoardTitleEdit() {
+    boardTitleDraft.value = props.board.title;
+    isEditingTitle.value = false;
+}
+
+function handleCancelBoardRename() {
+    if (!isEditingTitle.value) {
+        return;
+    }
+
+    cancelBoardTitleEdit();
+}
+
+async function saveBoardTitle() {
+    const normalizedTitle = boardTitleDraft.value.trim();
+    if (!normalizedTitle) {
+        boardTitleDraft.value = props.board.title;
+        isEditingTitle.value = false;
+        return;
+    }
+
+    isRenamingBoard.value = true;
     try {
-        await invoke('save_board_file', {
-            root: props.workspaceRoot,
-            path: ownerBoard.path,
-            content: nextContent,
-        })
-
-        console.debug('[kanstack:pointer-drag:save:success]', {
-            ownerBoardSlug: ownerBoard.slug,
-            cardSlug: item.slug,
-        })
-    } catch (error) {
-        console.error('[kanstack:pointer-drag:save:error]', error)
+        isEditingTitle.value = false;
+        emit("renameBoard", normalizedTitle);
     } finally {
-        isMovingCard.value = false
-    }
-})
-
-async function toggleSubBoards() {
-    const boardFileContent = props.boardFilesBySlug[props.board.slug]?.content ?? null;
-
-    if (!props.workspaceRoot || !boardFileContent || isSavingPreference.value) {
-        includeSubBoards.value = !includeSubBoards.value
-        return
-    }
-
-    const nextValue = !includeSubBoards.value
-    const nextSettings: KanbanBoardSettings = {
-        ...(props.board.settings ?? {}),
-        'show-sub-boards': nextValue,
-    }
-    const nextContent = updateBoardSettingsMarkdown(boardFileContent, nextSettings)
-
-    includeSubBoards.value = nextValue
-    isSavingPreference.value = true
-
-    try {
-        await invoke('save_board_file', {
-            root: props.workspaceRoot,
-            path: props.board.path,
-            content: nextContent,
-        })
-    } catch (error) {
-        includeSubBoards.value = !nextValue
-        console.error('Failed to save board settings', error)
-    } finally {
-        isSavingPreference.value = false
+        isRenamingBoard.value = false;
     }
 }
 
-async function createCard() {
-    if (!props.workspaceRoot || props.board.columns.length === 0) {
-        return
+async function handleBoardTitleBlur() {
+    await saveBoardTitle();
+}
+
+async function handleBoardTitleKeydown(event: KeyboardEvent) {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        await saveBoardTitle();
     }
 
-    const slug = getNextCardSlug(Object.keys(props.cardsBySlug))
-    const title = 'Untitled Card'
-    const targetColumn = props.board.columns[0]
-    const cardContent = serializeCardMarkdown({
-        title,
-        metadata: { title },
-        body: '',
-    })
-    const boardContent = addBoardCardMarkdown(props.board, {
-        cardSlug: slug,
-        targetColumnName: targetColumn.name,
-        targetColumnSlug: targetColumn.slug,
-    })
-
-    try {
-        await invoke('save_card_file', {
-            root: props.workspaceRoot,
-            path: `cards/${slug}.md`,
-            content: cardContent,
-        })
-        await invoke('save_board_file', {
-            root: props.workspaceRoot,
-            path: props.board.path,
-            content: boardContent,
-        })
-        emit('selectCard', slug)
-    } catch (error) {
-        console.error('Failed to create card', error)
+    if (event.key === "Escape") {
+        event.preventDefault();
+        cancelBoardTitleEdit();
     }
 }
 
 function getDisplayCardsForTarget(target: BoardPointerDropTarget) {
-    const column = boardView.value.columns.find((entry) => entry.slug === target.columnSlug)
+    const column = boardView.value.columns.find(
+        (entry) => entry.slug === target.columnSlug,
+    );
     if (!column) {
-        return []
+        return [];
     }
 
-    return column.cards
+    const section = column.sections.find(
+        (entry) => entry.key === target.sectionKey,
+    );
+    return section?.cards ?? [];
 }
 
-function handleSelectCard(slug: string) {
+function handleActivateCard(payload: {
+    metaKey: boolean;
+    shiftKey: boolean;
+    selection: WorkspaceCardSelection;
+}) {
     if (drag.wasDragging()) {
-        return
+        return;
     }
 
-    emit('selectCard', slug)
+    emit("activateCard", payload);
 }
 
-function getNextCardSlug(existingSlugs: string[]) {
-    return getNextAvailableSlug(cardSlugFromTitle('Untitled Card'), existingSlugs)
+function handleOpenCard(selection: WorkspaceCardSelection) {
+    if (drag.wasDragging()) {
+        return;
+    }
+
+    emit("openCard", selection);
+}
+
+function handleCanvasClick(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    if (!target) {
+        return;
+    }
+
+    if (
+        target.closest('[data-column-reorder-item="true"]') ||
+        target.closest('.board-canvas__toggle') ||
+        target.closest('.board-canvas__title-button') ||
+        target.closest('.board-canvas__title-input')
+    ) {
+        return;
+    }
+
+    emit('clearSelections');
+}
+
+function scrollSelectionIntoView(cardKey: string | null) {
+    if (!cardKey || !boardCanvasEl.value) {
+        return;
+    }
+
+    const target = boardCanvasEl.value.querySelector<HTMLElement>(
+        `[data-card-key="${cardKey}"]`,
+    );
+    target?.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
 watch(
-    () => props.board.settings?.['show-sub-boards'],
+    () => props.board.settings?.["show-sub-boards"],
     (value) => {
-        includeSubBoards.value = value ?? true
+        includeSubBoards.value = value ?? true;
     },
-)
+);
+
+watch(
+    () => props.board.settings?.[SHOW_ARCHIVE_COLUMN_SETTING],
+    (value) => {
+        showArchiveColumn.value = value ?? false;
+    },
+);
+
+watch(
+    () => props.board.title,
+    (value) => {
+        if (!isEditingTitle.value) {
+            boardTitleDraft.value = value;
+        }
+    },
+);
+
+watch(
+    visibleColumns,
+    (columns) => {
+        emit(
+            "updateVisibleCards",
+            columns.flatMap((column, columnIndex) =>
+                column.cards.map((card, rowIndex) => ({
+                    slug: card.slug,
+                    sourceBoardSlug: card.sourceBoardSlug,
+                    columnIndex,
+                    rowIndex,
+                })),
+            ),
+        );
+    },
+    { immediate: true },
+);
+
+watch(
+    () => props.selectedCardKeys,
+    (keys) => {
+        const activeKey = keys[keys.length - 1] ?? null;
+        void nextTick(() => {
+            scrollSelectionIntoView(activeKey);
+        });
+    },
+    { deep: true },
+);
+
+onMounted(() => {
+    window.addEventListener(
+        "kanstack:cancel-board-rename",
+        handleCancelBoardRename as EventListener,
+    );
+});
+
+onUnmounted(() => {
+    window.removeEventListener(
+        "kanstack:cancel-board-rename",
+        handleCancelBoardRename as EventListener,
+    );
+});
 </script>
 
 <template>
-    <section class="board-canvas">
+    <section ref="boardCanvasEl" class="board-canvas" @click="handleCanvasClick">
         <header class="board-canvas__header">
             <div>
-                <h1 class="board-canvas__title">{{ board.title }}</h1>
+                <button
+                    v-if="!isEditingTitle"
+                    class="board-canvas__title-button"
+                    type="button"
+                    @click="startBoardTitleEdit"
+                >
+                    <h1 class="board-canvas__title">{{ board.title }}</h1>
+                </button>
+                <input
+                    v-else
+                    ref="boardTitleInput"
+                    v-model="boardTitleDraft"
+                    class="board-canvas__title-input"
+                    type="text"
+                    :disabled="isRenamingBoard"
+                    @blur="handleBoardTitleBlur"
+                    @keydown="handleBoardTitleKeydown"
+                />
             </div>
 
             <div class="board-canvas__meta">
                 <button
                     class="board-canvas__toggle"
                     type="button"
-                    @click="createCard"
+                    @click="emit('addColumn')"
+                >
+                    + column
+                </button>
+                <button
+                    class="board-canvas__toggle"
+                    type="button"
+                    @click="emit('createCard')"
                 >
                     new card
                 </button>
@@ -242,29 +370,94 @@ watch(
                     v-if="rollupBoardCount"
                     class="board-canvas__toggle"
                     type="button"
-                    :disabled="isSavingPreference"
-                    @click="toggleSubBoards"
+                    @click="emit('toggleSubBoards')"
                 >
                     subboards {{ includeSubBoards ? "on" : "off" }}
                 </button>
-                <span>{{ boardView.columns.length }} columns</span>
-                <span>{{ board.path }}</span>
+                <button
+                    class="board-canvas__toggle"
+                    type="button"
+                    @click="emit('toggleArchiveColumn')"
+                >
+                    archive {{ showArchiveColumn ? "on" : "off" }}
+                </button>
             </div>
         </header>
 
         <div class="board-canvas__columns">
-            <BoardColumn
-                v-for="column in boardView.columns"
-                :key="column.slug"
-                :active-drag-item="drag.state.draggedItem"
-                :active-drop-target="activeDropTarget"
-                :cards-by-slug="cardsBySlug"
-                :column="column"
-                @pointer-down="drag.handlePointerDown"
-                @pointer-move="drag.handlePointerMove"
-                @pointer-up="drag.handlePointerUp"
-                @select-card="handleSelectCard"
-            />
+            <template v-for="(column, index) in movableColumns" :key="column.slug">
+                <div
+                    class="board-canvas__column-insert-slot"
+                    :class="{
+                        'board-canvas__column-insert-slot--active':
+                            columnDrag.state.insertIndex === index,
+                    }"
+                    :data-column-drop-index="index"
+                >
+                    <div class="board-canvas__column-insert-marker"></div>
+                </div>
+
+                <div
+                    class="board-canvas__column-item"
+                    data-column-reorder-item="true"
+                    :data-column-index="index"
+                >
+                    <BoardColumn
+                        :active-drag-item="drag.state.draggedItem"
+                        :active-drop-target="activeDropTarget"
+                        :cards-by-slug="cardsBySlug"
+                        :column="column"
+                        :renaming-disabled="column.slug === 'archive'"
+                        :selected="selectedColumnSlug === column.slug"
+                        :selected-card-keys="selectedCardKeys"
+                        @header-pointer-down="columnDrag.handlePointerDown"
+                        @header-pointer-move="columnDrag.handlePointerMove"
+                        @header-pointer-up="columnDrag.handlePointerUp"
+                        @pointer-down="drag.handlePointerDown"
+                        @pointer-move="drag.handlePointerMove"
+                        @pointer-up="drag.handlePointerUp"
+                        @activate-card="handleActivateCard"
+                        @open-card="handleOpenCard"
+                        @rename-column="emit('renameColumn', $event)"
+                        @select-column="emit('selectColumn', $event)"
+                    />
+                </div>
+            </template>
+
+            <div
+                class="board-canvas__column-insert-slot"
+                :class="{
+                    'board-canvas__column-insert-slot--active':
+                        columnDrag.state.insertIndex === movableColumns.length,
+                }"
+                :data-column-drop-index="movableColumns.length"
+            >
+                <div class="board-canvas__column-insert-marker"></div>
+            </div>
+
+            <div
+                v-if="archiveColumn"
+                class="board-canvas__column-item"
+                data-column-reorder-item="true"
+                :data-column-index="movableColumns.length"
+            >
+                <BoardColumn
+                    :active-drag-item="drag.state.draggedItem"
+                    :active-drop-target="activeDropTarget"
+                    :cards-by-slug="cardsBySlug"
+                    :column="archiveColumn"
+                    :renaming-disabled="true"
+                    :selected="selectedColumnSlug === archiveColumn.slug"
+                    :selected-card-keys="selectedCardKeys"
+                    @pointer-down="drag.handlePointerDown"
+                    @pointer-move="drag.handlePointerMove"
+                    @pointer-up="drag.handlePointerUp"
+                    @activate-card="handleActivateCard"
+                    @open-card="handleOpenCard"
+                    @rename-column="emit('renameColumn', $event)"
+                    @select-column="emit('selectColumn', $event)"
+                />
+            </div>
         </div>
     </section>
 </template>
@@ -295,6 +488,28 @@ watch(
 
 .board-canvas__title {
     margin: 0.2rem 0 0;
+    font-size: 1.35rem;
+    font-weight: 600;
+}
+
+.board-canvas__title-button,
+.board-canvas__title-input {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+}
+
+.board-canvas__title-button {
+    text-align: left;
+    cursor: text;
+}
+
+.board-canvas__title-input {
+    width: min(28rem, 80vw);
+    margin: 0.2rem 0 0;
+    border-bottom: 1px solid var(--shade-4);
     font-size: 1.35rem;
     font-weight: 600;
 }
@@ -330,10 +545,32 @@ watch(
     min-height: 0;
     display: flex;
     align-items: stretch;
-    gap: 1rem;
+    gap: 0;
     overflow-x: auto;
     overflow-y: hidden;
     padding: 0.25rem;
+}
+
+.board-canvas__column-item {
+    display: flex;
+}
+
+.board-canvas__column-insert-slot {
+    width: 1rem;
+    flex: 0 0 1rem;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+}
+
+.board-canvas__column-insert-marker {
+    width: 2px;
+    border-radius: 999px;
+    background: transparent;
+}
+
+.board-canvas__column-insert-slot--active .board-canvas__column-insert-marker {
+    background: var(--shade-5);
 }
 
 .board-canvas__subboards {

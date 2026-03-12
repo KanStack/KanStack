@@ -1,11 +1,13 @@
-import { reactive } from 'vue'
+import { onUnmounted, reactive } from 'vue'
 
 import type { BoardViewCardLink } from '@/utils/buildBoardView'
+import { DEFAULT_SECTION_KEY } from '@/utils/kanbanPath'
 
 export interface BoardPointerDropTarget {
   columnName: string
   columnSlug: string
   displayIndex: number
+  sectionKey: string
   sectionName: string | null
   sectionSlug: string | null
   surfaceId: string
@@ -31,6 +33,7 @@ export function useBoardPointerDrag(
   let dragStarted = false
   let dragSourceEl: HTMLElement | null = null
   let ghostEl: HTMLElement | null = null
+  let activePointerId: number | null = null
   let ghostOffsetX = 0
   let ghostOffsetY = 0
   let pendingPointerX = 0
@@ -58,6 +61,7 @@ export function useBoardPointerDrag(
     pendingPointerX = event.clientX
     pendingPointerY = event.clientY
     dragStarted = false
+    activePointerId = event.pointerId
 
     const target = event.currentTarget as HTMLElement
     dragSourceEl = target
@@ -65,15 +69,7 @@ export function useBoardPointerDrag(
     ghostOffsetX = event.clientX - rect.left
     ghostOffsetY = event.clientY - rect.top
     target.setPointerCapture(event.pointerId)
-    document.body.style.userSelect = 'none'
-    document.body.style.webkitUserSelect = 'none'
-
-    console.debug('[kanstack:pointer-drag:start]', {
-      cardSlug: item.slug,
-      sourceBoardSlug: item.sourceBoardSlug,
-      sourceBoardTitle: item.sourceBoardTitle,
-      isRolledUp: item.isRolledUp,
-    })
+    setBodySelectionLock(true)
   }
 
   function handlePointerMove(event: PointerEvent) {
@@ -118,29 +114,16 @@ export function useBoardPointerDrag(
       return
     }
 
-    document.body.style.userSelect = ''
-    document.body.style.webkitUserSelect = ''
-
     const item = state.draggedItem
-    if (frameId !== null) {
-      window.cancelAnimationFrame(frameId)
-      frameId = null
-    }
-
     const target = dragStarted ? getDropTargetAtPoint(event.clientX, event.clientY) : null
     const didDrag = dragStarted
-
-    state.draggedItem = null
-    syncActiveTarget(null)
-    state.isDragging = false
-    dragStarted = false
-    removeGhost()
-    dragSourceEl = null
 
     const currentTarget = event.currentTarget as HTMLElement
     if (currentTarget.hasPointerCapture?.(event.pointerId)) {
       currentTarget.releasePointerCapture(event.pointerId)
     }
+
+    resetDragState()
 
     if (didDrag) {
       recentlyDragged = true
@@ -148,12 +131,6 @@ export function useBoardPointerDrag(
         recentlyDragged = false
       }, 50)
     }
-
-    console.debug('[kanstack:pointer-drag:end]', {
-      cardSlug: item?.slug ?? null,
-      target,
-      didDrag,
-    })
 
     if (!item || !didDrag || !target) {
       return
@@ -227,6 +204,35 @@ export function useBoardPointerDrag(
     ghostEl = null
   }
 
+  function setBodySelectionLock(locked: boolean) {
+    document.body.style.userSelect = locked ? 'none' : ''
+    document.body.style.webkitUserSelect = locked ? 'none' : ''
+  }
+
+  function resetDragState() {
+    if (frameId !== null) {
+      window.cancelAnimationFrame(frameId)
+      frameId = null
+    }
+
+    if (dragSourceEl && activePointerId !== null && dragSourceEl.hasPointerCapture?.(activePointerId)) {
+      dragSourceEl.releasePointerCapture(activePointerId)
+    }
+
+    setBodySelectionLock(false)
+    removeGhost()
+    state.draggedItem = null
+    syncActiveTarget(null)
+    state.isDragging = false
+    dragStarted = false
+    dragSourceEl = null
+    activePointerId = null
+  }
+
+  onUnmounted(() => {
+    resetDragState()
+  })
+
   return {
     state,
     handlePointerDown,
@@ -260,7 +266,7 @@ function getDropTargetAtPoint(x: number, y: number) {
     columnName: section.dataset.columnName ?? '',
     columnSlug: section.dataset.columnSlug ?? '',
     displayIndex,
-    sectionKey: section.dataset.dropSectionKey ?? '__default__',
+    sectionKey: section.dataset.dropSectionKey ?? DEFAULT_SECTION_KEY,
     sectionName: normalizeNullableDataset(section.dataset.sectionName),
     sectionSlug: normalizeNullableDataset(section.dataset.sectionSlug),
     surfaceId: section.dataset.dropSurfaceId ?? 'default',
@@ -268,7 +274,7 @@ function getDropTargetAtPoint(x: number, y: number) {
 }
 
 function normalizeNullableDataset(value: string | undefined) {
-  if (value === undefined || value === '' || value === '__default__') {
+  if (value === undefined || value === '' || value === DEFAULT_SECTION_KEY) {
     return null
   }
 

@@ -1,9 +1,13 @@
+import { slugifySegment } from '@/utils/kanbanPath'
+
+export function boardSlugFromTitle(title: string) {
+  const slug = slugifySegment(title)
+
+  return slug || 'untitled-board'
+}
+
 export function cardSlugFromTitle(title: string) {
-  const slug = title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+  const slug = slugifySegment(title)
 
   return slug || 'untitled-card'
 }

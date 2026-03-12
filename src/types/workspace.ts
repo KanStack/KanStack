@@ -11,8 +11,25 @@ export interface WorkspaceSnapshot {
   cards: WorkspaceFileSnapshot[]
 }
 
+export interface WorkspaceCardSelection {
+  slug: string
+  sourceBoardSlug: string
+}
+
+export interface VisibleBoardCardSelection extends WorkspaceCardSelection {
+  columnIndex: number
+  rowIndex: number
+}
+
+export interface WorkspaceMutationPayload {
+  currentBoardSlug?: string | null
+  selectedCard?: WorkspaceCardSelection | null
+  snapshot: WorkspaceSnapshot
+}
+
 export interface LoadedWorkspace {
   rootPath: string
+  snapshot: WorkspaceSnapshot
   parseResult: KanbanParseResult
   boardsBySlug: Record<string, KanbanBoardDocument>
   boardFilesBySlug: Record<string, WorkspaceFileSnapshot>

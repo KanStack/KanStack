@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Kanstack",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "identifier": "com.kanstack.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -16,6 +16,7 @@
         "title": "Kanstack",
         "width": 1440,
         "height": 920,
+        "maximized": true,
         "resizable": true,
         "fullscreen": false,
         "decorations": true

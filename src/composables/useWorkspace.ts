@@ -4,8 +4,8 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
 
 import type { KanbanBoardDocument, KanbanCardDocument } from '@docs/schemas/kanban-parser-schema'
-import type { LoadedWorkspace, WorkspaceSnapshot } from '@/types/workspace'
-import { parseWorkspace } from '@/utils/parseWorkspace'
+import type { LoadedWorkspace, WorkspaceMutationPayload, WorkspaceSnapshot } from '@/types/workspace'
+import { buildLoadedWorkspace, createWorkspaceSnapshotSignature } from '@/utils/workspaceSnapshot'
 
 const STORAGE_KEY = 'kanstack.workspacePath'
 const WORKSPACE_CHANGED_EVENT = 'workspace-changed'
@@ -20,15 +20,22 @@ interface WorkspaceChangedPayload {
   rootPath: string
 }
 
+interface BoardNavOption {
+  slug: string
+  title: string
+}
+
 export function useWorkspace() {
   const workspace = shallowRef<LoadedWorkspace | null>(null)
   const currentBoardSlug = shallowRef<string | null>(null)
   const selectedCardSlug = shallowRef<string | null>(null)
+  const selectedCardSourceBoardSlug = shallowRef<string | null>(null)
   const workspacePath = shallowRef<string | null>(null)
   const lastSnapshotSignature = shallowRef<string | null>(null)
   const isLoading = shallowRef(false)
   const isRefreshing = shallowRef(false)
   const errorMessage = shallowRef<string | null>(null)
+  let watchedWorkspacePath: string | null = null
   let unlistenWorkspaceChanges: UnlistenFn | null = null
 
   const currentBoard = computed<KanbanBoardDocument | null>(() => {
@@ -47,6 +54,14 @@ export function useWorkspace() {
     return workspace.value.cardsBySlug[selectedCardSlug.value] ?? null
   })
 
+  const selectedCardSourceBoard = computed<KanbanBoardDocument | null>(() => {
+    if (!workspace.value || !selectedCardSourceBoardSlug.value) {
+      return null
+    }
+
+    return workspace.value.boardsBySlug[selectedCardSourceBoardSlug.value] ?? null
+  })
+
   const boardOptions = computed(() => {
     if (!workspace.value) {
       return []
@@ -56,6 +71,51 @@ export function useWorkspace() {
       const board = workspace.value!.boardsBySlug[slug]
       return { slug, title: board.title }
     })
+  })
+  const boardRelations = computed(() => buildBoardRelations(workspace.value))
+  const boardLineage = computed<BoardNavOption[]>(() => {
+    if (!workspace.value || !currentBoardSlug.value) {
+      return []
+    }
+
+    const lineage: string[] = []
+    const visited = new Set<string>()
+    let slug: string | null = currentBoardSlug.value
+
+    while (slug && !visited.has(slug) && workspace.value.boardsBySlug[slug]) {
+      visited.add(slug)
+      lineage.unshift(slug)
+      slug = boardRelations.value.parentBySlug[slug] ?? null
+    }
+
+    return lineage.map((entrySlug) => ({
+      slug: entrySlug,
+      title: workspace.value!.boardsBySlug[entrySlug].title,
+    }))
+  })
+  const siblingBoards = computed<BoardNavOption[]>(() => {
+    if (!workspace.value || !currentBoardSlug.value) {
+      return []
+    }
+
+    const parentSlug = boardRelations.value.parentBySlug[currentBoardSlug.value] ?? null
+    const candidateSlugs = parentSlug
+      ? (boardRelations.value.childrenBySlug[parentSlug] ?? [])
+      : boardRelations.value.rootSlugs
+
+    return candidateSlugs
+      .filter((slug) => slug !== currentBoardSlug.value && workspace.value!.boardsBySlug[slug])
+      .map((slug) => ({ slug, title: workspace.value!.boardsBySlug[slug].title }))
+  })
+  const childBoards = computed<BoardNavOption[]>(() => {
+    if (!workspace.value || !currentBoard.value) {
+      return []
+    }
+
+    return currentBoard.value.subBoards
+      .map((link) => workspace.value!.boardsBySlug[link.slug])
+      .filter((board): board is KanbanBoardDocument => Boolean(board))
+      .map((board) => ({ slug: board.slug, title: board.title }))
   })
 
   async function openWorkspace() {
@@ -101,7 +161,7 @@ export function useWorkspace() {
 
     try {
       const snapshot = await invoke<WorkspaceSnapshot>('load_workspace', { path })
-      const signature = createSnapshotSignature(snapshot)
+      const signature = createWorkspaceSnapshotSignature(snapshot)
 
       if (silent && signature === lastSnapshotSignature.value) {
         return
@@ -109,7 +169,7 @@ export function useWorkspace() {
 
       applyWorkspaceSnapshot(snapshot, path, signature, preserveSelection)
       if (!silent) {
-        await startWorkspaceWatch(path)
+        await replaceWorkspaceWatch(path)
       }
       errorMessage.value = null
     } catch (error) {
@@ -147,18 +207,48 @@ export function useWorkspace() {
   function selectBoard(slug: string) {
     currentBoardSlug.value = slug
     selectedCardSlug.value = null
+    selectedCardSourceBoardSlug.value = null
   }
 
-  function selectCard(slug: string) {
+  function selectCard(selection: { slug: string; sourceBoardSlug: string }) {
+    const { slug, sourceBoardSlug } = selection
     if (!workspace.value?.cardsBySlug[slug]) {
       return
     }
 
     selectedCardSlug.value = slug
+    selectedCardSourceBoardSlug.value = sourceBoardSlug
   }
 
   function closeCard() {
     selectedCardSlug.value = null
+    selectedCardSourceBoardSlug.value = null
+  }
+
+  function applyWorkspaceMutation(payload: WorkspaceMutationPayload) {
+    const path = workspacePath.value ?? payload.snapshot.rootPath
+    const signature = createWorkspaceSnapshotSignature(payload.snapshot)
+    const nextWorkspace = buildLoadedWorkspace(payload.snapshot)
+
+    workspace.value = nextWorkspace
+    workspacePath.value = path
+    lastSnapshotSignature.value = signature
+    currentBoardSlug.value = payload.currentBoardSlug && nextWorkspace.boardsBySlug[payload.currentBoardSlug]
+      ? payload.currentBoardSlug
+      : currentBoardSlug.value && nextWorkspace.boardsBySlug[currentBoardSlug.value]
+        ? currentBoardSlug.value
+        : nextWorkspace.boardsBySlug.main
+          ? 'main'
+          : nextWorkspace.boardOrder[0] ?? null
+    selectedCardSlug.value = payload.selectedCard?.slug && nextWorkspace.cardsBySlug[payload.selectedCard.slug]
+      ? payload.selectedCard.slug
+      : null
+    selectedCardSourceBoardSlug.value = payload.selectedCard?.sourceBoardSlug
+      && nextWorkspace.boardsBySlug[payload.selectedCard.sourceBoardSlug]
+      ? payload.selectedCard.sourceBoardSlug
+      : null
+
+    window.localStorage.setItem(STORAGE_KEY, path)
   }
 
   function applyWorkspaceSnapshot(
@@ -167,31 +257,19 @@ export function useWorkspace() {
     signature: string,
     preserveSelection: boolean
   ) {
-      const parseResult = parseWorkspace(snapshot)
-      const boardsBySlug = Object.fromEntries(parseResult.boards.map((board) => [board.slug, board]))
-      const boardFilesBySlug = Object.fromEntries(snapshot.boards.map((boardFile) => [slugFromPath(boardFile.path), boardFile]))
-      const cardsBySlug = Object.fromEntries(parseResult.cards.map((card) => [card.slug, card]))
-      const boardOrder = parseResult.boards.map((board) => board.slug)
+    const nextWorkspace = buildLoadedWorkspace(snapshot)
 
-      workspace.value = {
-        rootPath: snapshot.rootPath,
-        parseResult,
-        boardsBySlug,
-        boardFilesBySlug,
-        cardsBySlug,
-        boardOrder
-      }
+    workspace.value = nextWorkspace
 
     workspacePath.value = path
     lastSnapshotSignature.value = signature
-    currentBoardSlug.value = preserveSelection && currentBoardSlug.value && boardsBySlug[currentBoardSlug.value]
+    currentBoardSlug.value = preserveSelection && currentBoardSlug.value && nextWorkspace.boardsBySlug[currentBoardSlug.value]
       ? currentBoardSlug.value
-      : boardsBySlug.main
+      : nextWorkspace.boardsBySlug.main
         ? 'main'
-        : boardOrder[0] ?? null
-    selectedCardSlug.value = preserveSelection && selectedCardSlug.value && cardsBySlug[selectedCardSlug.value]
-      ? selectedCardSlug.value
-      : null
+        : nextWorkspace.boardOrder[0] ?? null
+    selectedCardSlug.value = preserveSelection ? selectedCardSlug.value : null
+    selectedCardSourceBoardSlug.value = preserveSelection ? selectedCardSourceBoardSlug.value : null
 
     window.localStorage.setItem(STORAGE_KEY, path)
   }
@@ -202,15 +280,30 @@ export function useWorkspace() {
     lastSnapshotSignature.value = null
     currentBoardSlug.value = null
     selectedCardSlug.value = null
+    selectedCardSourceBoardSlug.value = null
     window.localStorage.removeItem(STORAGE_KEY)
   }
 
-  async function startWorkspaceWatch(path: string) {
+  async function replaceWorkspaceWatch(path: string) {
+    if (watchedWorkspacePath === path) {
+      return
+    }
+
+    if (watchedWorkspacePath) {
+      await stopWorkspaceWatch()
+    }
+
     await invoke('watch_workspace', { path })
+    watchedWorkspacePath = path
   }
 
   async function stopWorkspaceWatch() {
+    if (!watchedWorkspacePath) {
+      return
+    }
+
     await invoke('unwatch_workspace')
+    watchedWorkspacePath = null
   }
 
   async function attachWorkspaceListener() {
@@ -245,25 +338,57 @@ export function useWorkspace() {
     currentBoard,
     currentBoardSlug,
     boardOptions,
+    boardLineage,
+    siblingBoards,
+    childBoards,
     selectedCard,
+    selectedCardSlug,
+    selectedCardSourceBoard,
     isLoading,
     errorMessage,
     openWorkspace,
     restoreWorkspace,
     selectBoard,
     selectCard,
-    closeCard
+    closeCard,
+    applyWorkspaceMutation,
   }
 }
 
-function createSnapshotSignature(snapshot: WorkspaceSnapshot) {
-  return JSON.stringify({
-    boards: snapshot.boards,
-    cards: snapshot.cards
-  })
-}
+function buildBoardRelations(workspace: LoadedWorkspace | null) {
+  const parentBySlug: Record<string, string | null> = {}
+  const childrenBySlug: Record<string, string[]> = {}
 
-function slugFromPath(path: string) {
-  const filename = path.split('/').pop() ?? path
-  return filename.replace(/\.md$/, '')
+  if (!workspace) {
+    return {
+      childrenBySlug,
+      parentBySlug,
+      rootSlugs: [] as string[],
+    }
+  }
+
+  for (const slug of workspace.boardOrder) {
+    parentBySlug[slug] = null
+    childrenBySlug[slug] = []
+  }
+
+  for (const board of Object.values(workspace.boardsBySlug)) {
+    for (const link of board.subBoards) {
+      if (!workspace.boardsBySlug[link.slug]) {
+        continue
+      }
+
+      if (parentBySlug[link.slug] === null) {
+        parentBySlug[link.slug] = board.slug
+      }
+
+      childrenBySlug[board.slug].push(link.slug)
+    }
+  }
+
+  return {
+    childrenBySlug,
+    parentBySlug,
+    rootSlugs: workspace.boardOrder.filter((slug) => parentBySlug[slug] === null),
+  }
 }

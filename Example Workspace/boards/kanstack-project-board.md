@@ -20,7 +20,8 @@ title: Kanstack Project Board
     "type",
     "assignee"
   ],
-  "show-sub-boards": false
+  "show-sub-boards": false,
+  "show-archive-column": false
 }
 ```
 %%
@@ -29,29 +30,31 @@ title: Kanstack Project Board
 
 - [[better-new-card-placement]]
 
-- [[delete-undo-flow]]
-
 - [[rename-collision-ux]]
-
-## In Progress
 
 - [[example-workspace-refresh]]
 
 ## Review
 
+- [[vue-tauri-shell]]
+
+- [[cards/drag-ghost-and-drop-targets|Drag Ghost And Drop Targets]]
+
 - [[title-based-card-rename]]
+
+- [[workspace-file-watch]]
 
 - [[safe-card-delete]]
 
-- [[drag-ghost-and-drop-targets]]
+- [[new-card-flow]]
+
+## In Progress
 
 ## Done
 
-- [[vue-tauri-shell]]
+- [[cards/delete-undo-flows|Delete Undo Flows]]
 
 - [[markdown-workspace-loader]]
-
-- [[workspace-file-watch]]
 
 - [[autosave-card-editor]]
 
@@ -59,4 +62,8 @@ title: Kanstack Project Board
 
 - [[monochrome-theme-pass]]
 
-- [[new-card-flow]]
+## Archive
+
+## Sub Boards
+
+- [[boards/sub-button|Sub Button]]

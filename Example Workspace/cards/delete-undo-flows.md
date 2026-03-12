@@ -1,5 +1,5 @@
 ---
-title: Delete Undo Flow
+title: Delete Undo Flows
 type: research
 priority: low
 assignee: galen
@@ -8,7 +8,7 @@ tags:
   - safety
 ---
 
-# Delete Undo Flow
+# Delete Undo Flows
 
 Explore whether card deletion should gain a lightweight undo path or trash mechanism without adding too much persistence complexity.
 

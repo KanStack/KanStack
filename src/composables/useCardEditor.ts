@@ -2,6 +2,8 @@ import { computed, onUnmounted, reactive, shallowRef, watch } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
 
 import type { KanbanCardDocument, KanbanCardMetadata } from '@docs/schemas/kanban-parser-schema'
+import type { WorkspaceMutationPayload, WorkspaceSnapshot } from '@/types/workspace'
+import { getCardRenameTarget } from '@/utils/renameTarget'
 import { serializeCardMarkdown } from '@/utils/serializeCard'
 
 const CARD_TYPES = ['task', 'bug', 'feature', 'research', 'chore'] as const
@@ -13,7 +15,17 @@ interface CardEditorSession {
   workspaceRoot: string
 }
 
-export function useCardEditor() {
+interface UseCardEditorOptions {
+  getCardSlugs: () => string[]
+  getSourceBoardSlug: () => string | null
+}
+
+interface SaveResult {
+  mutation: WorkspaceMutationPayload | null
+  ok: boolean
+}
+
+export function useCardEditor(options: UseCardEditorOptions) {
   const session = shallowRef<CardEditorSession | null>(null)
   const isSaving = shallowRef(false)
   const isDeleting = shallowRef(false)
@@ -30,6 +42,8 @@ export function useCardEditor() {
     body: ''
   })
   let autosaveTimer: number | null = null
+  let activeSavePromise: Promise<SaveResult> | null = null
+  let saveQueued = false
 
   const hasPendingChanges = computed(() => Boolean(session.value) && createDraftSnapshot(draft) !== lastSavedSnapshot.value)
 
@@ -72,22 +86,57 @@ export function useCardEditor() {
     isHydrating.value = false
     isSaving.value = false
     isDeleting.value = false
+    saveQueued = false
+    activeSavePromise = null
   }
 
-  async function save() {
+  async function save(): Promise<SaveResult> {
+    if (!session.value) {
+      return { ok: false, mutation: null }
+    }
+
+    if (activeSavePromise) {
+      saveQueued = true
+      return activeSavePromise
+    }
+
+    activeSavePromise = runSaveLoop()
+    const result = await activeSavePromise
+    activeSavePromise = null
+    return result
+  }
+
+  async function runSaveLoop(): Promise<SaveResult> {
+    let didSave = false
+    let lastMutation: WorkspaceMutationPayload | null = null
+
+    do {
+      saveQueued = false
+      const result = await saveOnce()
+      didSave = didSave || result.ok
+      lastMutation = result.mutation ?? lastMutation
+    } while (saveQueued && session.value)
+
+    return {
+      ok: didSave || !hasPendingChanges.value,
+      mutation: lastMutation,
+    }
+  }
+
+  async function saveOnce(): Promise<SaveResult> {
     if (!session.value || isSaving.value) {
-      return false
+      return { ok: false, mutation: null }
     }
 
     const snapshot = createDraftSnapshot(draft)
     if (snapshot === lastSavedSnapshot.value) {
-      return true
+      return { ok: true, mutation: null }
     }
 
     const title = draft.title.trim()
     if (!title) {
       errorMessage.value = 'Title is required.'
-      return false
+      return { ok: false, mutation: null }
     }
 
     const metadata: KanbanCardMetadata = {
@@ -110,17 +159,58 @@ export function useCardEditor() {
     errorMessage.value = null
 
     try {
-      await invoke('save_card_file', {
-        root: session.value.workspaceRoot,
-        path: session.value.card.path,
-        content
-      })
+      const renameTarget = getCardRenameTarget(title, session.value.card.slug, options.getCardSlugs())
+      let mutation: WorkspaceMutationPayload | null = null
+
+      if (title !== session.value.card.title || renameTarget.slug !== session.value.card.slug) {
+        const snapshot = await invoke<WorkspaceSnapshot>('rename_card', {
+          root: session.value.workspaceRoot,
+          oldPath: session.value.card.path,
+          newPath: renameTarget.path,
+          oldSlug: session.value.card.slug,
+          newSlug: renameTarget.slug,
+          newTitle: title,
+          content,
+        })
+
+        session.value = {
+          ...session.value,
+          card: {
+            ...session.value.card,
+            body: draft.body,
+            metadata,
+            path: renameTarget.path,
+            slug: renameTarget.slug,
+            title,
+          },
+        }
+
+        const sourceBoardSlug = options.getSourceBoardSlug()
+        mutation = {
+          snapshot,
+          selectedCard: sourceBoardSlug
+            ? {
+                slug: renameTarget.slug,
+                sourceBoardSlug,
+              }
+            : null,
+        }
+      } else {
+        await invoke('save_card_file', {
+          root: session.value.workspaceRoot,
+          path: session.value.card.path,
+          content
+        })
+      }
 
       lastSavedSnapshot.value = snapshot
-      return true
+      if (createDraftSnapshot(draft) !== snapshot) {
+        saveQueued = true
+      }
+      return { ok: true, mutation }
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : 'Failed to save the card.'
-      return false
+      return { ok: false, mutation: null }
     } finally {
       isSaving.value = false
     }
@@ -176,6 +266,9 @@ export function useCardEditor() {
   }
 
   watch(draft, () => {
+    if (isSaving.value) {
+      saveQueued = true
+    }
     scheduleSave()
   }, { deep: true })
 

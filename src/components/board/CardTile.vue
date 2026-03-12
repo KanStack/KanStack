@@ -7,24 +7,37 @@ import type { BoardViewCardLink } from "@/utils/buildBoardView";
 const props = defineProps<{
     card: KanbanCardDocument | null;
     item: BoardViewCardLink;
+    selected: boolean;
 }>();
 
 const emit = defineEmits<{
     pointerDown: [{ item: BoardViewCardLink; event: PointerEvent }];
     pointerMove: [event: PointerEvent];
     pointerUp: [event: PointerEvent];
-    select: [slug: string];
+    activate: [payload: { metaKey: boolean; shiftKey: boolean; selection: { slug: string; sourceBoardSlug: string } }];
+    open: [selection: { slug: string; sourceBoardSlug: string }];
 }>();
 
 function handlePointerDown(event: PointerEvent) {
-    console.debug("[kanstack:pointer-drag:pointerdown]", {
-        cardSlug: props.item.slug,
-        isRolledUp: props.item.isRolledUp,
-        sourceBoardSlug: props.item.sourceBoardSlug,
-        sourceBoardTitle: props.item.sourceBoardTitle,
-    });
-
     emit("pointerDown", { item: props.item, event });
+}
+
+function buildSelection() {
+    return { slug: props.item.slug, sourceBoardSlug: props.item.sourceBoardSlug };
+}
+
+function handleClick(event: MouseEvent) {
+    (event.currentTarget as HTMLButtonElement | null)?.blur();
+    emit("activate", {
+        metaKey: event.metaKey || event.ctrlKey,
+        shiftKey: event.shiftKey,
+        selection: buildSelection(),
+    });
+}
+
+function handleDoubleClick(event: MouseEvent) {
+    (event.currentTarget as HTMLButtonElement | null)?.blur();
+    emit("open", buildSelection());
 }
 
 const preview = computed(() => {
@@ -58,8 +71,11 @@ const badges = computed(() => {
 <template>
     <button
         class="card-tile"
+        :class="{ 'card-tile--selected': selected }"
+        :data-card-key="`${item.sourceBoardSlug}:${item.slug}`"
         type="button"
-        @click="emit('select', item.slug)"
+        @click="handleClick"
+        @dblclick="handleDoubleClick"
         @pointerdown="handlePointerDown"
         @pointermove="emit('pointerMove', $event)"
         @pointerup="emit('pointerUp', $event)"
@@ -93,9 +109,10 @@ const badges = computed(() => {
     text-align: left;
 }
 
-.card-tile:hover {
+.card-tile--selected {
     border-color: var(--shade-5);
-    background: linear-gradient(180deg, var(--shade-3), var(--shade-1));
+    box-shadow: inset 0 0 0 1px var(--shade-5);
+    background: linear-gradient(180deg, var(--shade-3), var(--shade-2));
 }
 
 .card-tile__topline {

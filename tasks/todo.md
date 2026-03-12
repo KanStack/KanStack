@@ -228,3 +228,150 @@
 - Confirmed a schema/implementation mismatch around board sections across `docs/schemas/kanban-parser-schema.ts`, `src/utils/parseWorkspace.ts`, and `src/utils/serializeBoard.ts` that makes round-trip saves lossy.
 - Found multi-file workspace mutations split across frontend and Rust commands, with duplicated markdown mutation rules and no transactional guardrails.
 - Confirmed there are currently no automated test files covering the parser, serializers, drag logic, or Tauri file commands.
+
+## Refactor Implementation
+
+- [x] Write the approved refactor design to `docs/plans/2026-03-11-kanstack-refactor-design.md`
+- [x] Restore section-aware board parsing, view modeling, and serialization
+- [x] Extract board actions out of `src/components/board/BoardCanvas.vue`
+- [x] Harden card editor autosave/session handling and drag/workspace lifecycles
+- [x] Add focused parser/serializer tests and verify with build checks
+
+## Refactor Implementation Review
+
+- Restored section-aware board parsing and serialization in `src/utils/parseWorkspace.ts`, `src/utils/buildBoardView.ts`, and `src/utils/serializeBoard.ts`, and updated `src/components/board/BoardColumn.vue` to render named sections again.
+- Extracted board persistence concerns into `src/composables/useBoardActions.ts`, leaving `src/components/board/BoardCanvas.vue` focused on view composition and UI events.
+- Hardened editor and lifecycle behavior by queueing autosaves in `src/composables/useCardEditor.ts`, tightening modal session syncing in `src/components/card/CardEditorModal.vue`, explicitly replacing workspace watchers in `src/composables/useWorkspace.ts`, and cleaning drag teardown in `src/composables/useBoardPointerDrag.ts`.
+- Centralized markdown helpers with `src/utils/kanbanPath.ts`, `src/utils/workspaceSnapshot.ts`, and shared board settings block serialization in `src/utils/serializeBoardSettings.ts`.
+- Added parser/serializer coverage in `src/utils/boardMarkdown.test.ts` and verified the refactor with `npm test`, `npm run build`, and `cargo check --manifest-path src-tauri/Cargo.toml`.
+- Added transactional-style multi-file writes in `src-tauri/src/main.rs` so card creation can write the card file and board file through one backend command with rollback if a later write fails.
+- Updated `delete_card_file` in `src-tauri/src/main.rs` to stage board detach rewrites before removing the card file and roll board changes back if the file delete fails.
+- Updated `src/composables/useBoardActions.ts` to use the new `create_card_in_board` backend command instead of chaining separate frontend write calls.
+
+## Archive Column Feature
+
+- [x] Write the approved archive column design to `docs/plans/2026-03-11-kanstack-archive-column-design.md`
+- [x] Preserve source board ownership when selecting cards from rolled-up views
+- [x] Add hidden-by-default archive column toggle and persistence
+- [x] Add archive action in the editor that moves cards into `Archive`
+- [x] Add/archive-focused tests and verify with build checks
+
+## Archive Column Feature Review
+
+- Added archive constants in `src/utils/archiveColumn.ts` and a persisted board setting in `docs/schemas/kanban-parser-schema.ts` so boards can hide `Archive` by default and reveal it on demand.
+- Preserved source board ownership through selection by passing `{ slug, sourceBoardSlug }` from board tiles into `src/composables/useWorkspace.ts`, then through `src/App.vue` into `src/components/card/CardEditorModal.vue`.
+- Added the archive toggle in `src/components/board/BoardCanvas.vue` and filtered the rendered column set so `Archive` stays hidden unless `show-archive-column` is enabled.
+- Added editor-driven archive moves in `src/components/card/CardEditorModal.vue` and `src/composables/useBoardActions.ts`, using `src/utils/serializeBoard.ts` to create the `Archive` column on demand.
+- Added archive contract coverage in `src/utils/boardMarkdown.test.ts` and verified the feature with `npm test`, `npm run build`, and `cargo check --manifest-path src-tauri/Cargo.toml`.
+
+## Sub-Board Button Feature
+
+- [x] Write the approved sub-board button design to `docs/plans/2026-03-11-kanstack-sub-board-button-design.md`
+- [x] Add serializer/helpers for creating linked sub boards
+- [x] Add transactional backend command for new sub-board creation
+- [x] Wire a `new sub board` button into the board header and navigate to the new board
+- [x] Add focused tests and verify with build checks
+
+## Sub-Board Button Feature Review
+
+- Added board creation/linking helpers in `src/utils/serializeBoard.ts` and a board slug helper in `src/utils/slug.ts` so sub boards can be created from the current board structure and linked under `## Sub Boards`.
+- Added a transactional `create_sub_board` backend command in `src-tauri/src/main.rs` that writes the new child board file and the updated parent board file together.
+- Updated `src/composables/useBoardActions.ts` with `createSubBoard()` and wired a `new sub board` button into `src/components/board/BoardCanvas.vue` that immediately navigates to the new board after creation.
+- Added serializer coverage for child board creation/linking in `src/utils/boardMarkdown.test.ts` and verified the feature with `npm test`, `npm run build`, and `cargo check --manifest-path src-tauri/Cargo.toml`.
+
+## Rename Behavior Feature
+
+- [x] Write the approved rename behavior design to `docs/plans/2026-03-11-kanstack-rename-behavior-design.md`
+- [x] Add shared rename target helpers and board/card rename serialization support
+- [x] Add transactional backend rename commands that rewrite board links safely
+- [x] Keep current board selection and card editor state attached through rename mutations
+- [x] Add focused tests and verify with frontend and Rust test/build checks
+
+## Rename Behavior Feature Review
+
+- Added shared rename target planning in `src/utils/renameTarget.ts` and board rename serialization in `src/utils/serializeBoard.ts`.
+- Added `rename_card` and `rename_board` commands plus shared link-rewrite helpers/tests in `src-tauri/src/main.rs` so file renames and board link rewrites happen transactionally.
+- Updated `src/composables/useWorkspace.ts` to apply returned mutation snapshots immediately, preserving board/card selection without waiting for watcher refresh timing.
+- Added inline board title editing in `src/components/board/BoardCanvas.vue` and restored true card rename behavior in `src/composables/useCardEditor.ts` with mutation propagation through `src/components/card/CardEditorModal.vue` and `src/App.vue`.
+- Verified with `npm test`, `npm run build`, and `cargo test --manifest-path src-tauri/Cargo.toml`.
+
+## Board Navigation Feature
+
+- [x] Write the approved board navigation design to `docs/plans/2026-03-11-kanstack-board-navigation-design.md`
+- [x] Derive breadcrumb lineage, siblings, and child boards in workspace state
+- [x] Replace the flat header selector with breadcrumb and context panel navigation
+- [x] Move `new sub board` into the header navigation panel
+- [x] Verify with tests/build checks and review the resulting navigation flow
+
+## Board Navigation Feature Review
+
+- Replaced the flat board `<select>` in `src/components/app/AppHeader.vue` with breadcrumb-based navigation and a current-board context panel for siblings, sub boards, and `new sub board`.
+- Derived lineage, sibling, and child board context in `src/composables/useWorkspace.ts` from the existing `subBoards` graph.
+- Moved `new sub board` creation into header navigation by wiring `src/App.vue` to a header-level `useBoardActions` instance and removing the duplicate button from `src/components/board/BoardCanvas.vue`.
+- Verified the redesign with `npm run build` and `npm test`.
+
+## Shortcuts and Selection Feature
+
+- [x] Write the approved shortcuts/selection design to `docs/plans/2026-03-11-kanstack-shortcuts-selection-design.md`
+- [x] Add app-level visible-board selection state and range/toggle selection behavior
+- [x] Add keyboard shortcut dispatch for selection-aware actions
+- [x] Add native Tauri menu items that trigger the same actions
+- [x] Verify with tests/build checks and review desktop interaction flow
+
+## Shortcuts and Selection Feature Review
+
+- Added visible-board multi-selection state in `src/composables/useBoardSelection.ts` and wired single-click, cmd/ctrl-click, shift-click, and double-click card interactions through `src/components/board/CardTile.vue`, `src/components/board/BoardColumn.vue`, `src/components/board/BoardCanvas.vue`, and `src/App.vue`.
+- Added app-level keyboard dispatch in `src/App.vue` for `Escape`, `Enter`, `Delete`/`Backspace`, `Cmd/Ctrl+O`, `Cmd/Ctrl+N`, `Cmd/Ctrl+Shift+N`, `Cmd/Ctrl+Shift+A`, and `Cmd/Ctrl+.` with editable-field safety checks.
+- Added custom close/cancel event bridging so shortcuts can safely close the editor and cancel inline board rename through `src/components/card/CardEditorModal.vue` and `src/components/board/BoardCanvas.vue`.
+- Added native Tauri menu items and menu-action event forwarding in `src-tauri/src/main.rs`, mirroring the same frontend actions for file, board, and card commands.
+- Verified the feature with `npm run build`, `npm test`, `cargo check --manifest-path src-tauri/Cargo.toml`, and `cargo test --manifest-path src-tauri/Cargo.toml`.
+- Added arrow-key selection navigation in `src/composables/useBoardSelection.ts` and `src/App.vue`, with left/up moving to the previous visible card and right/down moving to the next visible card when the editor is not open.
+- Refined horizontal arrow navigation so `ArrowLeft` and `ArrowRight` move between columns by nearest row position, using visible column and row metadata emitted from `src/components/board/BoardCanvas.vue`.
+
+## Global Columns Feature
+
+- [x] Write the approved global columns design to `docs/plans/2026-03-11-kanstack-global-columns-design.md`
+- [x] Add shared global column derivation and board rewrite helpers
+- [x] Add app-level column selection and inline column rename flow
+- [x] Add global add/rename/delete column actions plus Board menu items
+- [x] Verify with tests/builds and review shared column behavior
+
+## Global Columns Feature Review
+
+- Added shared workspace column derivation in `src/utils/workspaceColumns.ts` and board rewrite helpers in `src/utils/serializeBoard.ts` so columns can be added, renamed, and deleted across every board file.
+- Added transactional workspace-wide board saves in `src-tauri/src/main.rs` via `save_workspace_boards`, and added native `Board` menu items for `New Column`, `Rename Column`, and `Delete Column`.
+- Added app-level column selection state and global column actions in `src/App.vue`, including `Delete` key support, menu dispatch, and protected handling for the `Archive` column.
+- Updated `src/components/board/BoardCanvas.vue` and `src/components/board/BoardColumn.vue` so clicking a column header selects it, clicking the selected title renames it inline, and `+ column` adds a shared `Untitled Column`.
+- Updated board markdown tests in `src/utils/boardMarkdown.test.ts` and verified with `npm test`, `npm run build`, and `cargo check --manifest-path src-tauri/Cargo.toml`.
+
+## Column Reorder Feature
+
+- [x] Write the approved column reorder design to `docs/plans/2026-03-11-kanstack-column-reorder-design.md`
+- [x] Add shared archive-aware column ordering helpers and board rewrites
+- [x] Add header-based column drag and insertion markers
+- [x] Save reordered columns globally while keeping `Archive` pinned right
+- [x] Verify with tests/builds and review drag behavior
+
+## Column Reorder Feature Review
+
+- Added archive-aware workspace column ordering helpers in `src/utils/workspaceColumns.ts` and board reorder/sync helpers in `src/utils/serializeBoard.ts` so global column order stays consistent and `Archive` remains pinned right.
+- Added a dedicated column drag composable in `src/composables/useBoardColumnDrag.ts` and wired header-based drag interactions plus insertion markers through `src/components/board/BoardCanvas.vue` and `src/components/board/BoardColumn.vue`.
+- Updated `src/App.vue` and `src/composables/useBoardActions.ts` so reordered columns are saved across every board file and new columns are inserted immediately before `Archive`.
+- Added reorder coverage to `src/utils/boardMarkdown.test.ts` and verified with `npm test`, `npm run build`, and `cargo check --manifest-path src-tauri/Cargo.toml`.
+
+## Undo Redo Plan
+
+- [x] Add an in-memory action manager with capped `past`/`future` stacks (100 items max) and action labels
+- [x] Add a backend workspace snapshot restore/apply command for session-only undo/redo replay
+- [x] Route board and column mutations through a single action execution layer for the first rollout
+- [ ] Add undo/redo shortcuts and native menu items with disabled states/labels
+- [ ] Coalesce card editor autosave changes into grouped edit actions instead of per-keystroke history
+
+## Undo Redo Review
+
+- Added an in-memory history manager in `src/history/useActionHistory.ts` with capped `past`/`future` stacks and no cross-session persistence.
+- Added `apply_workspace_snapshot` in `src-tauri/src/main.rs` so undo/redo can replay full workspace snapshots safely for the current session.
+- Routed phase-1 board and column actions through tracked execution in `src/App.vue`, including board rename/delete, archive/sub-board visibility toggles, and column add/rename/delete/reorder.
+- Added native `Edit -> Undo` / `Redo` menu items and keyboard shortcuts in `src-tauri/src/main.rs` and `src/App.vue`.
+- Routed card create, sub-board create, card drag/keyboard move, archive, and delete through the same tracked history flow in `src/App.vue`, `src/components/board/BoardCanvas.vue`, and `src/components/card/CardEditorModal.vue`.
+- Remaining follow-up: coalesce card editor autosave/title/body/metadata edits into grouped undoable edit actions and improve native menu label/disabled-state updates.

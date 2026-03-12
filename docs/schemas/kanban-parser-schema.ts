@@ -68,6 +68,7 @@ export interface KanbanBoardSettings extends MarkdownRecord {
   "group-by"?: "none" | "section" | "assignee" | "priority" | "type" | "due"
   "show-empty-columns"?: boolean
   "show-sub-boards"?: boolean
+  "show-archive-column"?: boolean
   "card-preview"?: "none" | "metadata" | "body"
   "list-collapse"?: boolean[]
   "column-settings"?: Record<string, KanbanColumnSettings>

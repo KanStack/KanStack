@@ -16,12 +16,7 @@ import type {
   MarkdownValue
 } from '@docs/schemas/kanban-parser-schema'
 import type { WorkspaceSnapshot } from '@/types/workspace'
-
-interface WikiTarget {
-  slug: string
-  target: string
-  title?: string
-}
+import { normalizeWikiTarget, slugFromMarkdownPath, slugifySegment } from '@/utils/kanbanPath'
 
 export function parseWorkspace(snapshot: WorkspaceSnapshot): KanbanParseResult {
   const boards = snapshot.boards.map((file) => parseBoardFile(file.path, file.content))
@@ -38,7 +33,7 @@ export function parseWorkspace(snapshot: WorkspaceSnapshot): KanbanParseResult {
 function parseBoardFile(path: string, rawContent: string): KanbanBoardDocument {
   const diagnostics: KanbanDiagnostic[] = []
   const parsed = parseFrontmatter(rawContent, path, diagnostics)
-  const slug = slugFromPath(path)
+  const slug = slugFromMarkdownPath(path)
   const frontmatter = toMarkdownRecord(parsed.data)
   const title = readString(frontmatter.title) ?? readHeading(parsed.content, '# ') ?? titleFromSlug(slug)
   const lines = parsed.content.split(/\r?\n/)
@@ -47,6 +42,7 @@ function parseBoardFile(path: string, rawContent: string): KanbanBoardDocument {
   const settingsLines: string[] = []
 
   let currentColumn: KanbanColumn | null = null
+  let currentSectionIndex: number | null = null
   let inSubBoards = false
   let inSettings = false
 
@@ -73,21 +69,32 @@ function parseBoardFile(path: string, rawContent: string): KanbanBoardDocument {
       if (headingName === 'Sub Boards') {
         inSubBoards = true
         currentColumn = null
+        currentSectionIndex = null
         continue
       }
 
       inSubBoards = false
       currentColumn = {
         name: headingName,
-        slug: slugify(headingName),
+        slug: slugifySegment(headingName),
         index: columns.length,
         sections: []
       }
+      currentSectionIndex = null
       columns.push(currentColumn)
       continue
     }
 
     if (line.startsWith('### ') && currentColumn) {
+      const headingName = line.slice(4).trim()
+      const section = {
+        name: headingName,
+        slug: slugifySegment(headingName) || null,
+        index: currentColumn.sections.length,
+        cards: [] as KanbanCardLink[]
+      }
+      currentColumn.sections.push(section)
+      currentSectionIndex = currentColumn.sections.length - 1
       continue
     }
 
@@ -113,7 +120,7 @@ function parseBoardFile(path: string, rawContent: string): KanbanBoardDocument {
       continue
     }
 
-    ensureUnnamedSection(currentColumn).cards.push(wikiTarget)
+    getActiveSection(currentColumn, currentSectionIndex).cards.push(wikiTarget)
   }
 
   if (columns.length === 0) {
@@ -143,7 +150,7 @@ function parseBoardFile(path: string, rawContent: string): KanbanBoardDocument {
 function parseCardFile(path: string, rawContent: string): KanbanCardDocument {
   const diagnostics: KanbanDiagnostic[] = []
   const parsed = parseFrontmatter(rawContent, path, diagnostics)
-  const slug = slugFromPath(path)
+  const slug = slugFromMarkdownPath(path)
   const metadata = toMarkdownRecord(parsed.data) as KanbanCardMetadata
   const title = readString(metadata.title) ?? readHeading(parsed.content, '# ') ?? titleFromSlug(slug)
   const body = stripLeadingTitle(parsed.content, title).trim()
@@ -177,7 +184,7 @@ function parseCardSections(body: string): KanbanCardSection[] {
     const markdown = currentLines.join('\n').trim()
     sections.push({
       name: currentName,
-      slug: slugify(currentName),
+      slug: slugifySegment(currentName),
       index: sections.length,
       markdown,
       checklist: extractChecklist(markdown),
@@ -232,11 +239,22 @@ function parseBoardSettings(
   }
 }
 
-function ensureUnnamedSection(column: KanbanColumn) {
-  const lastSection = column.sections[column.sections.length - 1]
+function getActiveSection(column: KanbanColumn, currentSectionIndex: number | null) {
+  if (currentSectionIndex !== null) {
+    const activeSection = column.sections[currentSectionIndex]
+    if (activeSection) {
+      return activeSection
+    }
+  }
 
-  if (lastSection) {
-    return lastSection
+  return ensureUnnamedSection(column)
+}
+
+function ensureUnnamedSection(column: KanbanColumn) {
+  const unnamedSection = column.sections.find((section) => section.name === null && section.slug === null)
+
+  if (unnamedSection) {
+    return unnamedSection
   }
 
   const section = {
@@ -249,26 +267,13 @@ function ensureUnnamedSection(column: KanbanColumn) {
   return section
 }
 
-function parseBulletWikiLink(line: string): WikiTarget | null {
+function parseBulletWikiLink(line: string): KanbanCardLink | null {
   const match = line.match(/^[-*]\s+\[\[([^\]]+)\]\]/)
   if (!match) {
     return null
   }
 
   return normalizeWikiTarget(match[1])
-}
-
-function normalizeWikiTarget(value: string): WikiTarget {
-  const [targetPart, titlePart] = value.split('|')
-  const normalizedTarget = targetPart.trim().replace(/\\/g, '/').replace(/\.md$/, '').replace(/^\.\//, '')
-  const slug = normalizedTarget.replace(/^boards\//, '').replace(/^cards\//, '')
-  const title = titlePart?.trim() || undefined
-
-  return {
-    slug,
-    target: normalizedTarget,
-    title
-  }
 }
 
 function extractChecklist(markdown: string): KanbanChecklistItem[] {
@@ -402,19 +407,6 @@ function stripLeadingTitle(content: string, title: string): string {
   }
 
   return content
-}
-
-function slugFromPath(path: string): string {
-  const filename = path.replace(/\\/g, '/').split('/').pop() ?? path
-  return filename.replace(/\.md$/, '')
-}
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
 }
 
 function titleFromSlug(slug: string): string {

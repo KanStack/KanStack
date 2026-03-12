@@ -3,17 +3,27 @@ import type { KanbanBoardSettings } from '@docs/schemas/kanban-parser-schema'
 const SETTINGS_START = '%% kanban:settings'
 const SETTINGS_END = '%%'
 
-export function updateBoardSettingsMarkdown(rawContent: string, settings: KanbanBoardSettings) {
+export function serializeBoardSettingsBlock(settings: KanbanBoardSettings | null) {
+  if (!settings) {
+    return ''
+  }
+
   const cleanedSettings = cleanSettings(settings)
-  const serializedSettingsBlock = Object.keys(cleanedSettings).length
-    ? [
-        SETTINGS_START,
-        '```json',
-        JSON.stringify(cleanedSettings, null, 2),
-        '```',
-        SETTINGS_END,
-      ].join('\n')
-    : ''
+  if (!Object.keys(cleanedSettings).length) {
+    return ''
+  }
+
+  return [
+    SETTINGS_START,
+    '```json',
+    JSON.stringify(cleanedSettings, null, 2),
+    '```',
+    SETTINGS_END,
+  ].join('\n')
+}
+
+export function updateBoardSettingsMarkdown(rawContent: string, settings: KanbanBoardSettings) {
+  const serializedSettingsBlock = serializeBoardSettingsBlock(settings)
 
   const lines = rawContent.split(/\r?\n/)
   let startIndex = -1
