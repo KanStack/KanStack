@@ -1,4 +1,4 @@
-# Kanstack Column Reorder Design
+# KanStack Column Reorder Design
 
 ## Goal
 

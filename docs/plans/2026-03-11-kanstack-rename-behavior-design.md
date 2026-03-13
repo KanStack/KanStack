@@ -1,4 +1,4 @@
-# Kanstack Rename Behavior Design
+# KanStack Rename Behavior Design
 
 ## Goal
 

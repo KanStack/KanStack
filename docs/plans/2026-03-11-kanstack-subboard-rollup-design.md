@@ -1,4 +1,4 @@
-# Kanstack Sub-board Rollup Design
+# KanStack Sub-board Rollup Design
 
 ## Goal
 

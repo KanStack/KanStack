@@ -47,7 +47,10 @@ project/
 - `todo.md` controls column order, card placement, and saved sub-board links
 - `cards/*.md` holds metadata and long-form content for the current board
 - `README.md` can hold local notes for that board root
-- sub-boards are saved in `## Sub Boards` as relative paths to descendant `TODO/` folders
+- sub-boards are saved in `## Sub Boards` as relative paths to child `TODO/` folders
+- KanStack keeps a lightweight known-board set and can auto-build parent/child links for known boards from path containment
+- `Attach Existing Board` is used for boards that are not yet known to the app
+- machine-local app state such as known boards and global view preferences is stored in `config.md` in the app's local data/config directory
 
 For a fuller walkthrough of the workspace format, see `TODO/README.md` and `docs/schemas/kanban-parser-schema.ts`.
 

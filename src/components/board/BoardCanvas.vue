@@ -12,10 +12,13 @@ import type {
     KanbanBoardDocument,
     KanbanCardDocument,
 } from "@docs/schemas/kanban-parser-schema";
+import type { BoardViewPreferences } from "@/types/appConfig";
 import {
     SHOW_ARCHIVE_COLUMN_SETTING,
     isArchiveColumnSlug,
 } from "@/utils/archiveColumn";
+import { applyBoardViewPreferences } from "@/utils/boardViewPreferences";
+import { isCardReorderEnabled as isGlobalCardReorderEnabled } from "@/utils/appConfig";
 import { useBoardColumnDrag } from "@/composables/useBoardColumnDrag";
 import {
     useBoardPointerDrag,
@@ -28,6 +31,7 @@ import type {
 import { buildBoardView } from "@/utils/buildBoardView";
 
 import BoardColumn from "./BoardColumn.vue";
+import BoardViewControls from "./BoardViewControls.vue";
 
 const props = defineProps<{
     board: KanbanBoardDocument;
@@ -36,6 +40,7 @@ const props = defineProps<{
     cardsBySlug: Record<string, KanbanCardDocument>;
     selectedColumnSlug: string | null;
     selectedCardKeys: string[];
+    viewPreferences: BoardViewPreferences;
     workspaceRoot: string | null;
 }>();
 
@@ -47,18 +52,18 @@ const emit = defineEmits<{
             selection: WorkspaceCardSelection;
         },
     ];
-    addColumn: [];
     clearSelections: [];
-    createCard: [];
-    moveCard: [payload: {
-        cardSlug: string;
-        sourceBoardSlug: string;
-        targetColumnName: string;
-        targetColumnSlug: string;
-        targetSectionName: string | null;
-        targetSectionSlug: string | null;
-        targetIndex: number;
-    }];
+    moveCard: [
+        payload: {
+            cardSlug: string;
+            sourceBoardSlug: string;
+            targetColumnName: string;
+            targetColumnSlug: string;
+            targetSectionName: string | null;
+            targetSectionSlug: string | null;
+            targetIndex: number;
+        },
+    ];
     openCard: [selection: WorkspaceCardSelection];
     reorderColumns: [payload: { draggedSlug: string; targetIndex: number }];
     renameBoard: [title: string];
@@ -66,6 +71,7 @@ const emit = defineEmits<{
     selectColumn: [slug: string];
     toggleArchiveColumn: [];
     toggleSubBoards: [];
+    updateViewPreferences: [preferences: BoardViewPreferences];
     updateVisibleCards: [cards: VisibleBoardCardSelection[]];
 }>();
 
@@ -82,20 +88,30 @@ const boardCanvasEl = shallowRef<HTMLElement | null>(null);
 const isRenamingBoard = shallowRef(false);
 
 const boardView = computed(() =>
-    buildBoardView(props.board, props.boardsBySlug, includeSubBoards.value),
+    applyBoardViewPreferences(
+        buildBoardView(props.board, props.boardsBySlug, includeSubBoards.value),
+        props.cardsBySlug,
+        props.viewPreferences,
+    ),
+);
+const cardReorderEnabled = computed(() =>
+    isGlobalCardReorderEnabled(props.viewPreferences),
 );
 const visibleColumns = computed(() =>
     showArchiveColumn.value
         ? boardView.value.columns
         : boardView.value.columns.filter(
               (column) => !isArchiveColumnSlug(column.slug),
-            ),
+          ),
 );
 const movableColumns = computed(() =>
     visibleColumns.value.filter((column) => !isArchiveColumnSlug(column.slug)),
 );
 const archiveColumn = computed(
-    () => visibleColumns.value.find((column) => isArchiveColumnSlug(column.slug)) ?? null,
+    () =>
+        visibleColumns.value.find((column) =>
+            isArchiveColumnSlug(column.slug),
+        ) ?? null,
 );
 const activeDropTarget = computed(() => {
     if (
@@ -239,14 +255,14 @@ function handleCanvasClick(event: MouseEvent) {
 
     if (
         target.closest('[data-column-reorder-item="true"]') ||
-        target.closest('.board-canvas__toggle') ||
-        target.closest('.board-canvas__title-button') ||
-        target.closest('.board-canvas__title-input')
+        target.closest(".board-canvas__toggle") ||
+        target.closest(".board-canvas__title-button") ||
+        target.closest(".board-canvas__title-input")
     ) {
         return;
     }
 
-    emit('clearSelections');
+    emit("clearSelections");
 }
 
 function scrollSelectionIntoView(cardKey: string | null) {
@@ -328,7 +344,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <section ref="boardCanvasEl" class="board-canvas" @click="handleCanvasClick">
+    <section
+        ref="boardCanvasEl"
+        class="board-canvas"
+        @click="handleCanvasClick"
+    >
         <header class="board-canvas__header">
             <div>
                 <button
@@ -352,20 +372,12 @@ onUnmounted(() => {
             </div>
 
             <div class="board-canvas__meta">
-                <button
-                    class="board-canvas__toggle"
-                    type="button"
-                    @click="emit('addColumn')"
-                >
-                    + column
-                </button>
-                <button
-                    class="board-canvas__toggle"
-                    type="button"
-                    @click="emit('createCard')"
-                >
-                    new card
-                </button>
+                <BoardViewControls
+                    :cards-by-slug="cardsBySlug"
+                    :preferences="viewPreferences"
+                    @update-preferences="emit('updateViewPreferences', $event)"
+                />
+
                 <button
                     v-if="rollupBoardCount"
                     class="board-canvas__toggle"
@@ -385,7 +397,10 @@ onUnmounted(() => {
         </header>
 
         <div class="board-canvas__columns">
-            <template v-for="(column, index) in movableColumns" :key="column.slug">
+            <template
+                v-for="(column, index) in movableColumns"
+                :key="column.slug"
+            >
                 <div
                     class="board-canvas__column-insert-slot"
                     :class="{
@@ -406,6 +421,7 @@ onUnmounted(() => {
                         :active-drag-item="drag.state.draggedItem"
                         :active-drop-target="activeDropTarget"
                         :cards-by-slug="cardsBySlug"
+                        :card-reorder-enabled="cardReorderEnabled"
                         :column="column"
                         :renaming-disabled="column.slug === 'archive'"
                         :selected="selectedColumnSlug === column.slug"
@@ -445,6 +461,7 @@ onUnmounted(() => {
                     :active-drag-item="drag.state.draggedItem"
                     :active-drop-target="activeDropTarget"
                     :cards-by-slug="cardsBySlug"
+                    :card-reorder-enabled="cardReorderEnabled"
                     :column="archiveColumn"
                     :renaming-disabled="true"
                     :selected="selectedColumnSlug === archiveColumn.slug"
@@ -525,6 +542,8 @@ onUnmounted(() => {
 }
 
 .board-canvas__toggle {
+    width: 8rem;
+    flex: 0 0 8rem;
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--shade-3);
     background: var(--shade-2);

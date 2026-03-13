@@ -1,6 +1,6 @@
 {
   "identifier": "default",
-  "description": "Default capabilities for Kanstack",
+  "description": "Default capabilities for KanStack",
   "local": true,
   "windows": ["main"],
   "permissions": [

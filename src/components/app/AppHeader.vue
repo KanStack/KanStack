@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import appLogoUrl from '../../../src-tauri/icons/128x128.png'
 
 interface BoardNavOption {
   slug: string
@@ -13,11 +14,9 @@ type BreadcrumbItem =
 const props = defineProps<{
   boardLineage: BoardNavOption[]
   childBoards: BoardNavOption[]
-  isCreatingSubBoard: boolean
 }>()
 
 const emit = defineEmits<{
-  createSubBoard: []
   selectBoard: [slug: string]
 }>()
 
@@ -47,8 +46,10 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
 <template>
   <header class="app-header">
     <div class="app-header__brand">
-      <div class="app-header__eyebrow">local markdown</div>
-      <div class="app-header__title">KANSTACK</div>
+      <img class="app-header__logo" :src="appLogoUrl" alt="KanStack logo" />
+      <div class="app-header__brand-copy">
+        <div class="app-header__title">KanStack</div>
+      </div>
     </div>
 
     <div class="app-header__nav" v-if="boardLineage.length">
@@ -71,8 +72,9 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
         </template>
       </nav>
 
-      <div class="app-header__subboards">
-        <span class="app-header__subboards-label">Sub boards</span>
+      <span v-if="childBoards.length" class="app-header__separator">:</span>
+
+      <div v-if="childBoards.length" class="app-header__subboards">
         <div class="app-header__subboards-list">
           <button
             v-for="board in childBoards"
@@ -83,14 +85,6 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
           >
             {{ board.title }}
           </button>
-          <button
-            class="app-header__subboard-chip app-header__subboard-chip--new"
-            type="button"
-            :disabled="isCreatingSubBoard"
-            @click="emit('createSubBoard')"
-          >
-            {{ isCreatingSubBoard ? 'creating...' : '+ new' }}
-          </button>
         </div>
       </div>
     </div>
@@ -100,7 +94,7 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
 <style scoped>
 .app-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
   padding: 0.8rem 1.1rem;
@@ -110,38 +104,48 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
 }
 
 .app-header__brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   flex-shrink: 0;
   min-width: 0;
 }
 
-.app-header__eyebrow {
-  color: var(--shade-4);
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.app-header__brand-copy {
+  min-width: 0;
+}
+
+.app-header__logo {
+  width: 2.35rem;
+  height: 2.35rem;
+  object-fit: contain;
+  flex-shrink: 0;
 }
 
 .app-header__title {
-  font-size: 0.96rem;
+  font-size: 0.98rem;
   font-weight: 700;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.14em;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .app-header__nav {
   min-width: 0;
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.45rem;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  overflow: hidden;
 }
 
 .app-header__breadcrumb {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: flex-end;
   gap: 0.28rem;
   min-width: 0;
+  overflow: hidden;
 }
 
 .app-header__crumb,
@@ -172,28 +176,21 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
 .app-header__ellipsis {
   color: var(--shade-4);
   font-size: 0.72rem;
+  line-height: 1;
 }
 
 .app-header__subboards {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
   min-width: 0;
-}
-
-.app-header__subboards-label {
-  color: var(--shade-4);
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
 }
 
 .app-header__subboards-list {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap: nowrap;
   gap: 0.35rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .app-header__subboard-chip {
@@ -203,10 +200,6 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.78rem;
-}
-
-.app-header__subboard-chip--new {
-  border-style: dashed;
 }
 
 .app-header__crumb:hover,
@@ -227,17 +220,12 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
   }
 
   .app-header__nav {
-    align-items: stretch;
+    justify-content: flex-start;
   }
 
   .app-header__breadcrumb,
   .app-header__subboards-list {
     justify-content: flex-start;
-  }
-
-  .app-header__subboards {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }
 </style>

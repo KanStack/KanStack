@@ -1,4 +1,4 @@
-# Kanstack Shortcuts and Selection Design
+# KanStack Shortcuts and Selection Design
 
 ## Goal
 
@@ -16,7 +16,8 @@ Add desktop-style keyboard shortcuts, menu integration, and visible-board multi-
 
 - `Escape` clears selection first, then closes the board navigation panel, then cancels inline board rename, then closes the editor
 - `Enter` opens the selected card when exactly one card is selected and no text input is focused
-- `Delete` / `Backspace` deletes the selected card set when no text input is focused
+- `Delete` / `Backspace` archives the selected card set when no text input is focused
+- `Shift+Delete` / `Shift+Backspace` deletes the selected card set when no text input is focused
 - `Cmd/Ctrl+O` opens the workspace folder picker
 - `Cmd/Ctrl+N` creates a new card in the current board
 - `Cmd/Ctrl+Shift+N` creates a new sub board from the current board
@@ -31,9 +32,12 @@ Add desktop-style keyboard shortcuts, menu integration, and visible-board multi-
 
 ## Menu Bar
 
-- `File`: Open Folder, New Card, New Sub Board
-- `Board`: Toggle Board Menu, Toggle Archive Column, Toggle Sub Boards
-- `Card`: Open Selected, Archive Selected, Delete Selected, Close Editor
+- `File`: Open Folder, Close Folder
+- `Edit`: Undo, Redo
+- `Workspace`: New Board, Attach Existing Board
+- `Board`: Toggle Archive Column, Toggle Sub Boards, Delete Current Board
+- `Column`: New Column, Rename Column, Delete Column
+- `Card`: New Card, Archive Selected, Delete Selected
 
 ## Implementation
 

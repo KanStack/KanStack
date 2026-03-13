@@ -30,11 +30,17 @@ const editor = useCardEditor({
         const boardCardDirectory = cardPath.replace(/\/[^/]+$/, "");
         return Object.values(props.cardsBySlug)
             .map((card) => card.path)
-            .filter((path) => path.startsWith(`${boardCardDirectory}/`) || path === cardPath);
+            .filter(
+                (path) =>
+                    path.startsWith(`${boardCardDirectory}/`) ||
+                    path === cardPath,
+            );
     },
     getSourceBoardSlug: () => props.sourceBoard?.slug ?? null,
 });
-const displayCard = computed(() => props.card ?? editor.session.value?.card ?? null);
+const displayCard = computed(
+    () => props.card ?? editor.session.value?.card ?? null,
+);
 
 function syncEditorState() {
     if (props.open && props.workspaceRoot) {
@@ -80,7 +86,10 @@ async function handleBlur() {
 }
 
 async function handleDelete() {
-    if (!displayCard.value || !window.confirm(`Delete "${displayCard.value.title}"?`)) {
+    if (
+        !displayCard.value ||
+        !window.confirm(`Delete "${displayCard.value.title}"?`)
+    ) {
         return;
     }
 
@@ -155,7 +164,11 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div v-if="open && displayCard" class="card-editor" @click.self="handleClose">
+    <div
+        v-if="open && displayCard"
+        class="card-editor"
+        @click.self="handleClose"
+    >
         <article class="card-editor__panel">
             <header class="card-editor__header">
                 <div>
@@ -184,10 +197,7 @@ onUnmounted(() => {
                     <button
                         class="card-editor__button"
                         type="button"
-                        :disabled="
-                            editor.isDeleting.value ||
-                            !sourceBoard
-                        "
+                        :disabled="editor.isDeleting.value || !sourceBoard"
                         @click="handleArchive"
                     >
                         archive
@@ -197,7 +207,7 @@ onUnmounted(() => {
                         type="button"
                         @click="handleClose"
                     >
-                        close
+                        done
                     </button>
                 </div>
             </header>
@@ -255,6 +265,16 @@ onUnmounted(() => {
                         v-model="editor.draft.assignee"
                         class="card-editor__input"
                         type="text"
+                        @blur="handleBlur"
+                    />
+                </label>
+
+                <label class="card-editor__field">
+                    <span>Due</span>
+                    <input
+                        v-model="editor.draft.due"
+                        class="card-editor__input"
+                        type="datetime-local"
                         @blur="handleBlur"
                     />
                 </label>

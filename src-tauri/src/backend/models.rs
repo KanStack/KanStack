@@ -32,9 +32,67 @@ pub(crate) struct MenuActionPayload {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct DiscoveredSubBoard {
-    pub(crate) title: String,
-    pub(crate) todo_path: String,
+pub(crate) struct KnownBoardTreeSyncResult {
+    pub(crate) known_board_roots: Vec<String>,
+    pub(crate) missing_board_roots: Vec<String>,
+    pub(crate) suggested_root_path: Option<String>,
+    pub(crate) updated_board_roots: Vec<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub(crate) struct AppConfig {
+    pub(crate) known_board_roots: Vec<String>,
+    pub(crate) workspace_path: Option<String>,
+    pub(crate) view: AppViewPreferences,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub(crate) struct AppViewPreferences {
+    pub(crate) sort: AppViewSort,
+    pub(crate) filters: AppViewFilters,
+}
+
+impl Default for AppViewPreferences {
+    fn default() -> Self {
+        Self {
+            sort: AppViewSort::Manual,
+            filters: AppViewFilters::default(),
+        }
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub(crate) struct AppViewFilters {
+    pub(crate) text: String,
+    pub(crate) assignee: Option<String>,
+    pub(crate) tags: Vec<String>,
+    pub(crate) priority: Option<String>,
+    pub(crate) r#type: Option<String>,
+    pub(crate) due_status: AppViewDueStatus,
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum AppViewSort {
+    #[default]
+    Manual,
+    Title,
+    Due,
+    Priority,
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum AppViewDueStatus {
+    #[default]
+    Any,
+    Overdue,
+    DueSoon,
+    HasDue,
+    NoDue,
 }
 
 pub(crate) struct WorkspaceWatcher {

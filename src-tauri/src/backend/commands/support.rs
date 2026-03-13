@@ -6,11 +6,9 @@ use crate::backend::{
 };
 
 pub(crate) struct BoardContext {
-    pub(crate) project_root: PathBuf,
     pub(crate) relative_path: PathBuf,
     pub(crate) absolute_path: PathBuf,
     pub(crate) todo_root: PathBuf,
-    pub(crate) project_dir: PathBuf,
 }
 
 pub(crate) struct BoardDocument {
@@ -34,17 +32,10 @@ pub(crate) fn resolve_board_context(root: &str, board_path: &str) -> Result<Boar
         .parent()
         .ok_or_else(|| "Board file is missing a TODO directory.".to_string())?
         .to_path_buf();
-    let project_dir = todo_root
-        .parent()
-        .ok_or_else(|| "Board TODO folder is missing a project root.".to_string())?
-        .to_path_buf();
-
     Ok(BoardContext {
-        project_root,
         relative_path,
         absolute_path,
         todo_root,
-        project_dir,
     })
 }
 

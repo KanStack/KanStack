@@ -1,4 +1,4 @@
-# Kanstack Sub-Board Button Design
+# KanStack Sub-Board Button Design
 
 ## Goal
 

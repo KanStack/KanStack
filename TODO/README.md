@@ -96,11 +96,11 @@ Board notes:
 ## Board settings today
 
 - Active in the app today: `show-sub-boards`, `show-archive-column`
-- Parsed and preserved today: `sort-order`, `group-by`, `show-empty-columns`, `card-preview`, `list-collapse`, `column-settings`, plus unknown custom keys
-- `sort-order`: `manual`, `title`, `due`, `priority`, `updated`, `created`
+- Global render sorting/filtering now lives in the machine-local app `config.md`, not inside board markdown
+- Parsed and preserved today: `group-by`, `show-empty-columns`, `card-preview`, `list-collapse`, `column-settings`, plus unknown custom keys
 - `group-by`: `none`, `section`, `assignee`, `priority`, `type`, `due`
 - `card-preview`: `none`, `metadata`, `body`
-- `column-settings` are keyed by column slug and support `sort-order`, `wip-limit`, `collapsed`, `default-section`, `hidden`
+- `column-settings` are keyed by column slug and support `wip-limit`, `collapsed`, `default-section`, `hidden`
 - Older proposal docs may mention broader settings, but the current shipped contract is the list above plus preserved custom keys
 
 ## Card structure
@@ -168,10 +168,11 @@ Card notes:
 
 ## Card metadata today
 
-- Editable in the current card editor: `title`, `type`, `priority`, `assignee`, `tags`, `estimate`, `body`
+- Editable in the current card editor: `title`, `type`, `priority`, `assignee`, `due`, `tags`, `estimate`, `body`
 - Parsed and preserved by the file format: `owners`, `due`, `blocked_by`, `blocks`, `related`, `scheduled`, `started`, `completed`, `template`
 - `type`: `task`, `bug`, `feature`, `research`, `chore`
 - `priority`: `low`, `medium`, `high`
 - Relationship fields use card slugs, for example `blocked_by`, `blocks`, and `related`.
 - Common preserved custom fields: `story_points`, sprint IDs, external issue IDs, team-specific notes
-- Optional dates should use a consistent string format such as `YYYY-MM-DD`
+- `due` should use a local datetime string in `YYYY-MM-DDTHH:mm` format
+- Other optional dates should use a consistent string format such as `YYYY-MM-DD`

@@ -37,6 +37,7 @@ export function useCardEditor(options: UseCardEditorOptions) {
     type: '',
     priority: '',
     assignee: '',
+    due: '',
     tags: '',
     estimate: '',
     body: ''
@@ -72,6 +73,7 @@ export function useCardEditor(options: UseCardEditorOptions) {
     draft.type = readString(card.metadata.type)
     draft.priority = readString(card.metadata.priority)
     draft.assignee = readString(card.metadata.assignee)
+    draft.due = readLocalDateTime(card.metadata.due)
     draft.tags = Array.isArray(card.metadata.tags) ? card.metadata.tags.join(', ') : ''
     draft.estimate = typeof card.metadata.estimate === 'number' ? String(card.metadata.estimate) : ''
     draft.body = card.body
@@ -145,6 +147,7 @@ export function useCardEditor(options: UseCardEditorOptions) {
       type: normalizeCardType(draft.type),
       priority: normalizeCardPriority(draft.priority),
       assignee: normalizeOptionalString(draft.assignee),
+      due: normalizeLocalDateTime(draft.due),
       tags: normalizeTags(draft.tags),
       estimate: normalizeEstimate(draft.estimate)
     }
@@ -303,6 +306,7 @@ function createDraftSnapshot(draft: {
   type: string
   priority: string
   assignee: string
+  due: string
   tags: string
   estimate: string
   body: string
@@ -330,6 +334,25 @@ function normalizeTags(value: string) {
     .filter(Boolean)
 
   return tags.length ? tags : undefined
+}
+
+function normalizeLocalDateTime(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return undefined
+  }
+
+  return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(trimmed) ? trimmed : undefined
+}
+
+function readLocalDateTime(value: unknown) {
+  if (typeof value !== 'string') {
+    return ''
+  }
+
+  const trimmed = value.trim()
+  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})/)
+  return match?.[1] ?? ''
 }
 
 function normalizeEstimate(value: string) {

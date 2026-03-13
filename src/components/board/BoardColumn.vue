@@ -8,6 +8,7 @@ import type {
     BoardViewSection,
 } from "@/utils/buildBoardView";
 import { DEFAULT_SECTION_KEY } from "@/utils/kanbanPath";
+import { shouldStartColumnHeaderDrag } from "./columnHeaderInteraction";
 import CardTile from "./CardTile.vue";
 
 const props = defineProps<{
@@ -19,6 +20,7 @@ const props = defineProps<{
         surfaceId: string | null;
     } | null;
     cardsBySlug: Record<string, KanbanCardDocument>;
+    cardReorderEnabled: boolean;
     column: BoardViewColumn;
     renamingDisabled: boolean;
     selected: boolean;
@@ -87,6 +89,22 @@ function isInsertionVisible(section: BoardViewSection, displayIndex: number) {
 
 function handleHeaderClick() {
     emit("selectColumn", props.column.slug);
+}
+
+function handleHeaderPointerDown(event: PointerEvent) {
+    if (!shouldStartColumnHeaderDrag(event.target)) {
+        return;
+    }
+
+    emit("headerPointerDown", props.column.slug, event);
+}
+
+function handleCardPointerDown(item: BoardViewCardLink, event: PointerEvent) {
+    if (!props.cardReorderEnabled) {
+        return;
+    }
+
+    emit("pointerDown", item, event);
 }
 
 async function handleLabelClick(event: MouseEvent) {
@@ -186,12 +204,18 @@ onUnmounted(() => {
         <header
             class="board-column__header"
             @click="handleHeaderClick"
-            @pointerdown="emit('headerPointerDown', column.slug, $event)"
+            @pointerdown="handleHeaderPointerDown"
             @pointermove="emit('headerPointerMove', $event)"
             @pointerup="emit('headerPointerUp', $event)"
         >
             <div>
-                <button v-if="!isEditingTitle" class="board-column__label" type="button" @click.stop="handleLabelClick">
+                <button
+                    v-if="!isEditingTitle"
+                    class="board-column__label"
+                    data-column-title-control="true"
+                    type="button"
+                    @click.stop="handleLabelClick"
+                >
                     {{ column.name }}
                 </button>
                 <input
@@ -199,6 +223,7 @@ onUnmounted(() => {
                     ref="columnNameInput"
                     v-model="columnNameDraft"
                     class="board-column__label-input"
+                    data-column-title-control="true"
                     type="text"
                     :disabled="renamingDisabled"
                     @blur="commitRename"
@@ -251,13 +276,7 @@ onUnmounted(() => {
                                     :card="cardsBySlug[cardLink.slug] ?? null"
                                     :item="cardLink"
                                     :selected="selectedCardKeys.includes(`${cardLink.sourceBoardSlug}:${cardLink.slug}`)"
-                                    @pointer-down="
-                                        emit(
-                                            'pointerDown',
-                                            $event.item,
-                                            $event.event,
-                                        )
-                                    "
+                                    @pointer-down="handleCardPointerDown($event.item, $event.event)"
                                     @pointer-move="emit('pointerMove', $event)"
                                     @pointer-up="emit('pointerUp', $event)"
                                     @activate="emit('activateCard', $event)"

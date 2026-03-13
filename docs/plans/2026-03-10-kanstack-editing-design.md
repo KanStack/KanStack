@@ -1,8 +1,8 @@
-# Kanstack Editing Design
+# KanStack Editing Design
 
 ## Goal
 
-Add editing to `kanstack` without breaking the markdown-first model or introducing a heavy client architecture.
+Add editing to `KanStack` without breaking the markdown-first model or introducing a heavy client architecture.
 
 ## Core Rules
 
