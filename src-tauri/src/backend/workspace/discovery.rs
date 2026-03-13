@@ -35,49 +35,6 @@ pub(crate) fn resolve_sub_board_todo_roots(
     Ok(resolved)
 }
 
-pub(crate) fn collect_discoverable_sub_boards(
-    project_dir: &Path,
-    current_todo_root: &Path,
-    discovered: &mut Vec<PathBuf>,
-) -> Result<(), String> {
-    let mut child_directories = Vec::new();
-    let mut found_child_todo = false;
-
-    for entry in fs::read_dir(project_dir).map_err(|error| error.to_string())? {
-        let entry = entry.map_err(|error| error.to_string())?;
-        let path = entry.path();
-
-        if !path.is_dir() {
-            continue;
-        }
-
-        if path.file_name().and_then(|value| value.to_str()) == Some("TODO") {
-            if path == current_todo_root {
-                continue;
-            }
-
-            if validate_todo_root(&path).is_ok() {
-                discovered.push(path);
-                found_child_todo = true;
-            }
-
-            continue;
-        }
-
-        child_directories.push(path);
-    }
-
-    if found_child_todo {
-        return Ok(());
-    }
-
-    for child_directory in child_directories {
-        collect_discoverable_sub_boards(&child_directory, current_todo_root, discovered)?;
-    }
-
-    Ok(())
-}
-
 pub(crate) fn child_target_from_parent_board(
     parent_board_path: &Path,
     child_board_path: &Path,

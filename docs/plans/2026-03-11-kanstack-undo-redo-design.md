@@ -1,4 +1,4 @@
-# Kanstack Undo Redo Design
+# KanStack Undo Redo Design
 
 ## Goal
 

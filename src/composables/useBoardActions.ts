@@ -1,5 +1,6 @@
 import { shallowRef } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
+import { open } from '@tauri-apps/plugin-dialog'
 
 import type {
   KanbanBoardDocument,
@@ -10,13 +11,11 @@ import type { WorkspaceFileSnapshot, WorkspaceSnapshot } from '@/types/workspace
 import type { MoveBoardCardInput } from '@/utils/serializeBoard'
 import {
   addBoardCardMarkdown,
-  addSubBoardMarkdown,
   archiveBoardCardMarkdown,
   archiveBoardCardsMarkdown,
   createBoardMarkdownFromColumns,
   deleteBoardColumnMarkdown,
   moveBoardCardMarkdown,
-  replaceSubBoardsMarkdown,
   reorderBoardColumnsMarkdown,
   renameBoardColumnMarkdown,
   renameBoardMarkdown,
@@ -25,22 +24,21 @@ import {
 import { isArchiveColumnSlug } from '@/utils/archiveColumn'
 import { serializeCardMarkdown } from '@/utils/serializeCard'
 import { updateBoardSettingsMarkdown } from '@/utils/serializeBoardSettings'
-import { boardSlugFromTitle, cardSlugFromTitle, getNextAvailableSlug } from '@/utils/slug'
+import { cardSlugFromTitle, getNextAvailableSlug } from '@/utils/slug'
 import {
   buildBoardCardPath,
   buildBoardCardTarget,
-  buildChildBoardPath,
-  buildSubBoardTarget,
   cardIdFromCardPath,
-  dirnameRelativePath,
   slugifySegment,
 } from '@/utils/kanbanPath'
 import { countCardsInColumn, deriveWorkspaceColumns, insertWorkspaceColumnBeforeArchive, reorderWorkspaceColumns } from '@/utils/workspaceColumns'
 
-interface DiscoveredSubBoard {
-  title: string
-  todoPath: string
-}
+const DEFAULT_NEW_BOARD_COLUMNS = [
+  { name: 'Backlog', slug: 'backlog' },
+  { name: 'In Progress', slug: 'in-progress' },
+  { name: 'Review', slug: 'review' },
+  { name: 'Done', slug: 'done' },
+]
 
 interface UseBoardActionsOptions {
   getBoardsBySlug: () => Record<string, KanbanBoardDocument>
@@ -52,13 +50,12 @@ interface UseBoardActionsOptions {
 export function useBoardActions(options: UseBoardActionsOptions) {
   const isCreatingCard = shallowRef(false)
   const isCreatingColumn = shallowRef(false)
-  const isCreatingSubBoard = shallowRef(false)
+  const isCreatingBoard = shallowRef(false)
   const isDeletingColumn = shallowRef(false)
   const isMovingCard = shallowRef(false)
   const isRenamingColumn = shallowRef(false)
   const isRenamingBoard = shallowRef(false)
   const isSavingPreference = shallowRef(false)
-  const isFindingSubBoards = shallowRef(false)
 
   async function moveCard(board: KanbanBoardDocument, input: MoveBoardCardInput) {
     const workspaceRoot = options.getWorkspaceRoot()
@@ -151,39 +148,43 @@ export function useBoardActions(options: UseBoardActionsOptions) {
     }
   }
 
-  async function createSubBoard(board: KanbanBoardDocument) {
+  async function createBoard() {
     const workspaceRoot = options.getWorkspaceRoot()
-    if (!workspaceRoot || isCreatingSubBoard.value) {
+    if (isCreatingBoard.value) {
+      return null
+    }
+
+    const selection = await open({
+      directory: true,
+      multiple: false,
+      defaultPath: workspaceRoot ? defaultBoardDirectory(workspaceRoot) : undefined,
+      title: 'Choose where to create the new board',
+    })
+
+    if (typeof selection !== 'string') {
       return null
     }
 
     const title = 'Untitled Board'
-    const directoryName = getNextBoardDirectoryName(Object.values(options.getBoardsBySlug()), board)
-    const boardPath = buildChildBoardPath(board, directoryName)
-    const slug = boardPath.replace(/\/todo\.md$/i, '')
-    const boardContent = createBoardMarkdownFromColumns(title, deriveWorkspaceColumns(options.getBoardsBySlug(), board))
-    const parentBoardContent = addSubBoardMarkdown(board, {
-      boardSlug: slug,
-      boardTarget: buildSubBoardTarget(board.path, slug),
-      boardTitle: title,
-    })
+    const referenceBoard = Object.values(options.getBoardsBySlug())[0]
+    const boardColumns = referenceBoard
+      ? deriveWorkspaceColumns(options.getBoardsBySlug(), referenceBoard)
+      : DEFAULT_NEW_BOARD_COLUMNS
+    const boardContent = createBoardMarkdownFromColumns(title, boardColumns)
 
-    isCreatingSubBoard.value = true
+    isCreatingBoard.value = true
 
     try {
-      const snapshot = await invoke<WorkspaceSnapshot>('create_sub_board', {
-        root: workspaceRoot,
-        boardPath,
+      const todoPath = await invoke<string>('create_board', {
+        destinationPath: selection,
         boardContent,
-        parentBoardPath: board.path,
-        parentBoardContent,
       })
-      return { slug, snapshot }
+      return { todoPath }
     } catch (error) {
-      console.error('Failed to create sub board', error)
+      console.error('Failed to create board', error)
       return null
     } finally {
-      isCreatingSubBoard.value = false
+      isCreatingBoard.value = false
     }
   }
 
@@ -409,75 +410,27 @@ export function useBoardActions(options: UseBoardActionsOptions) {
     }
   }
 
-  async function findSubBoards(board: KanbanBoardDocument) {
-    const workspaceRoot = options.getWorkspaceRoot()
-    if (!workspaceRoot || isFindingSubBoards.value) {
-      return null
-    }
-
-    isFindingSubBoards.value = true
-
-    try {
-      const discovered = await invoke<DiscoveredSubBoard[]>('find_sub_boards', {
-        root: workspaceRoot,
-        boardPath: board.path,
-      })
-      const content = replaceSubBoardsMarkdown(
-        board,
-        discovered.map((child) => ({
-          slug: child.todoPath,
-          target: buildSubBoardTarget(board.path, child.todoPath),
-          title: child.title,
-        })),
-      )
-
-      return await invoke<WorkspaceSnapshot>('save_board_file', {
-        root: workspaceRoot,
-        path: board.path,
-        content,
-      })
-    } catch (error) {
-      console.error('Failed to find sub boards', error)
-      return null
-    } finally {
-      isFindingSubBoards.value = false
-    }
-  }
-
   return {
     isCreatingCard,
     isCreatingColumn,
-    isCreatingSubBoard,
+    isCreatingBoard,
     isDeletingColumn,
     isMovingCard,
     isRenamingColumn,
     isRenamingBoard,
     isSavingPreference,
-    isFindingSubBoards,
     addColumn,
     moveCard,
     saveBoardSettings,
     createCard,
-    createSubBoard,
+    createBoard,
     archiveCard,
     archiveCards,
     deleteColumn,
-    findSubBoards,
     reorderColumns,
     renameColumn,
     renameBoard,
   }
-}
-
-function getNextBoardDirectoryName(boards: KanbanBoardDocument[], parentBoard: KanbanBoardDocument) {
-  const parentProjectPath = dirnameRelativePath(parentBoard.slug)
-  const existingDirectoryNames = boards
-    .map((board) => board.slug)
-    .filter((slug) => slug !== parentBoard.slug)
-    .filter((slug) => dirnameRelativePath(dirnameRelativePath(slug)) === parentProjectPath)
-    .map((slug) => buildSubBoardTarget(parentBoard.path, slug).replace(/\/TODO$/i, ''))
-
-  return getNextAvailableSlug(boardSlugFromTitle('Untitled Board'), existingDirectoryNames)
 }
 
 function getNextCardSlug(cards: KanbanCardDocument[], board: KanbanBoardDocument) {
@@ -488,4 +441,8 @@ function getNextCardSlug(cards: KanbanCardDocument[], board: KanbanBoardDocument
     .filter(Boolean)
 
   return getNextAvailableSlug(cardSlugFromTitle('Untitled Card'), existingSlugs)
+}
+
+function defaultBoardDirectory(workspaceRoot: string) {
+  return workspaceRoot.replace(/[\\/]TODO$/i, '')
 }

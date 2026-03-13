@@ -4,10 +4,12 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
 
 import type { KanbanBoardDocument, KanbanCardDocument } from '@docs/schemas/kanban-parser-schema'
+import type { AppConfig, BoardViewPreferences } from '@/types/appConfig'
 import type { LoadedWorkspace, WorkspaceMutationPayload, WorkspaceSnapshot } from '@/types/workspace'
+import { createDefaultAppConfig, normalizeAppConfig, normalizeBoardViewPreferences } from '@/utils/appConfig'
 import { buildLoadedWorkspace, createWorkspaceSnapshotSignature } from '@/utils/workspaceSnapshot'
 
-const STORAGE_KEY = 'kanstack.workspacePath'
+const LEGACY_WORKSPACE_STORAGE_KEY = 'kanstack.workspacePath'
 const WORKSPACE_CHANGED_EVENT = 'workspace-changed'
 
 interface LoadWorkspaceOptions {
@@ -20,12 +22,24 @@ interface WorkspaceChangedPayload {
   rootPath: string
 }
 
+interface KnownBoardTreeSyncResult {
+  knownBoardRoots: string[]
+  missingBoardRoots: string[]
+  suggestedRootPath: string | null
+  updatedBoardRoots: string[]
+}
+
+interface WorkspaceLoadResult {
+  missingBoardRoots: string[]
+}
+
 interface BoardNavOption {
   slug: string
   title: string
 }
 
 export function useWorkspace() {
+  const appConfig = shallowRef<AppConfig>(createDefaultAppConfig())
   const workspace = shallowRef<LoadedWorkspace | null>(null)
   const currentBoardSlug = shallowRef<string | null>(null)
   const selectedCardSlug = shallowRef<string | null>(null)
@@ -35,8 +49,10 @@ export function useWorkspace() {
   const isLoading = shallowRef(false)
   const isRefreshing = shallowRef(false)
   const errorMessage = shallowRef<string | null>(null)
+  const viewPreferences = computed(() => appConfig.value.view)
   let watchedWorkspacePath: string | null = null
   let unlistenWorkspaceChanges: UnlistenFn | null = null
+  let pendingConfigWrite: number | null = null
 
   const currentBoard = computed<KanbanBoardDocument | null>(() => {
     if (!workspace.value || !currentBoardSlug.value) {
@@ -118,6 +134,63 @@ export function useWorkspace() {
       .map((board) => ({ slug: board.slug, title: board.title }))
   })
 
+  async function loadAppConfig() {
+    const config = normalizeAppConfig(await invoke<AppConfig>('load_app_config'))
+    appConfig.value = config
+    workspacePath.value = config.workspacePath
+    return config
+  }
+
+  async function persistAppConfig(config: AppConfig) {
+    const savedConfig = normalizeAppConfig(await invoke<AppConfig>('save_app_config', { config }))
+    appConfig.value = savedConfig
+    workspacePath.value = savedConfig.workspacePath
+    return savedConfig
+  }
+
+  function queueAppConfigWrite() {
+    if (pendingConfigWrite !== null) {
+      window.clearTimeout(pendingConfigWrite)
+    }
+
+    pendingConfigWrite = window.setTimeout(() => {
+      pendingConfigWrite = null
+      void persistAppConfig(appConfig.value)
+    }, 180)
+  }
+
+  async function persistWorkspacePath(path: string | null) {
+    const nextConfig = normalizeAppConfig({
+      ...appConfig.value,
+      workspacePath: path,
+    })
+    appConfig.value = nextConfig
+    workspacePath.value = nextConfig.workspacePath
+
+    if (path) {
+      window.localStorage.removeItem(LEGACY_WORKSPACE_STORAGE_KEY)
+    } else {
+      window.localStorage.removeItem(LEGACY_WORKSPACE_STORAGE_KEY)
+    }
+
+    await persistAppConfig(nextConfig)
+  }
+
+  function syncKnownBoardRoots(knownBoardRoots: string[]) {
+    appConfig.value = normalizeAppConfig({
+      ...appConfig.value,
+      knownBoardRoots,
+    })
+  }
+
+  function updateViewPreferences(preferences: BoardViewPreferences) {
+    appConfig.value = normalizeAppConfig({
+      ...appConfig.value,
+      view: normalizeBoardViewPreferences(preferences),
+    })
+    queueAppConfigWrite()
+  }
+
   async function openWorkspace() {
     const selection = await open({
       directory: true,
@@ -126,19 +199,78 @@ export function useWorkspace() {
     })
 
     if (typeof selection !== 'string') {
-      return
+      return null
     }
 
-    await loadWorkspace(selection)
+    const selectedRootPath = coerceBoardRootSelection(selection)
+    const syncResult = await syncKnownBoardTree({
+      additionalBoardRoots: [selectedRootPath],
+      focusRootPath: selectedRootPath,
+    })
+
+    const loadResult = await loadWorkspace(syncResult.suggestedRootPath ?? selectedRootPath)
+    return {
+      missingBoardRoots: [...syncResult.missingBoardRoots, ...(loadResult?.missingBoardRoots ?? [])],
+    } satisfies WorkspaceLoadResult
+  }
+
+  async function closeWorkspace() {
+    await stopWorkspaceWatch()
+    clearWorkspaceState()
+    errorMessage.value = null
+    await persistWorkspacePath(null)
+  }
+
+  async function syncKnownBoardTree(options: {
+    additionalBoardRoots?: string[]
+    focusRootPath?: string | null
+  }) {
+    const result = await invoke<KnownBoardTreeSyncResult>('sync_known_board_tree', {
+      additionalBoardRoots: (options.additionalBoardRoots ?? []).map(normalizeTodoRootPath),
+      focusRootPath: options.focusRootPath ?? null,
+    })
+    syncKnownBoardRoots(result.knownBoardRoots)
+    return result
+  }
+
+  async function attachExistingBoard() {
+    const selection = await open({
+      directory: true,
+      multiple: false,
+      defaultPath: workspacePath.value ? parentDirectoryOfTodoRoot(workspacePath.value) : undefined,
+    })
+
+    if (typeof selection !== 'string') {
+      return null
+    }
+
+    const attachedRootPath = coerceBoardRootSelection(selection)
+    const result = await registerKnownBoardRoots([attachedRootPath])
+
+    return {
+      attachedRootPath,
+      missingBoardRoots: result.missingBoardRoots,
+    }
   }
 
   async function restoreWorkspace() {
-    const savedPath = window.localStorage.getItem(STORAGE_KEY)
-    if (!savedPath) {
-      return
-    }
+    try {
+      const config = await loadAppConfig()
+      const legacyPath = window.localStorage.getItem(LEGACY_WORKSPACE_STORAGE_KEY)
+      const savedPath = config.workspacePath ?? legacyPath
 
-    await loadWorkspace(savedPath, { surfaceErrors: false })
+      if (!config.workspacePath && legacyPath) {
+        await persistWorkspacePath(legacyPath)
+      }
+
+      if (!savedPath) {
+        return
+      }
+
+      await loadWorkspace(savedPath, { surfaceErrors: false })
+    } catch (error) {
+      errorMessage.value = error instanceof Error ? error.message : 'Failed to restore app config.'
+    }
   }
 
   async function loadWorkspace(path: string, options: LoadWorkspaceOptions = {}) {
@@ -164,21 +296,51 @@ export function useWorkspace() {
       const signature = createWorkspaceSnapshotSignature(snapshot)
 
       if (silent && signature === lastSnapshotSignature.value) {
-        return
+        return null
       }
 
       applyWorkspaceSnapshot(snapshot, path, signature, preserveSelection)
       if (!silent) {
         await replaceWorkspaceWatch(path)
       }
+      const syncResult = silent
+        ? null
+        : await syncKnownBoardTree({
+            additionalBoardRoots: snapshotBoardRoots(snapshot),
+            focusRootPath: path,
+          })
+      const shouldReloadCurrentRoot = !silent
+        && Boolean(syncResult?.updatedBoardRoots.some((rootPath) => isBoardWithinWorkspaceTree(rootPath, path)))
+
+      if (!silent && syncResult?.suggestedRootPath && syncResult.suggestedRootPath !== path) {
+        return await loadWorkspace(syncResult.suggestedRootPath, {
+          preserveSelection: true,
+          surfaceErrors,
+        })
+      }
+
+      if (shouldReloadCurrentRoot) {
+        return await loadWorkspace(path, {
+          preserveSelection: true,
+          surfaceErrors,
+        })
+      }
+
       errorMessage.value = null
+      if (!silent && appConfig.value.workspacePath !== path) {
+        await persistWorkspacePath(path)
+      }
+      return {
+        missingBoardRoots: syncResult?.missingBoardRoots ?? [],
+      } satisfies WorkspaceLoadResult
     } catch (error) {
       if (silent) {
-        return
+        return null
       }
 
       await stopWorkspaceWatch()
       clearWorkspaceState()
+      await persistWorkspacePath(null)
 
       if (surfaceErrors) {
         errorMessage.value = error instanceof Error ? error.message : 'Failed to load the selected workspace.'
@@ -190,6 +352,37 @@ export function useWorkspace() {
         isLoading.value = false
       }
     }
+  }
+
+  async function loadWorkspaceRoot(path: string) {
+    return await loadWorkspace(path)
+  }
+
+  async function registerKnownBoardRoots(boardRoots: string[]) {
+    const syncResult = await syncKnownBoardTree({
+      additionalBoardRoots: boardRoots,
+      focusRootPath: workspacePath.value,
+    })
+
+    const nextWorkspacePath = workspacePath.value
+      ? syncResult.suggestedRootPath ?? workspacePath.value
+      : null
+
+    if (nextWorkspacePath && (
+      nextWorkspacePath !== workspacePath.value
+      || syncResult.updatedBoardRoots.some((rootPath) => isBoardWithinWorkspaceTree(rootPath, workspacePath.value!))
+    )) {
+      const loadResult = await loadWorkspace(nextWorkspacePath, {
+        preserveSelection: true,
+      })
+      return {
+        missingBoardRoots: [...syncResult.missingBoardRoots, ...(loadResult?.missingBoardRoots ?? [])],
+      } satisfies WorkspaceLoadResult
+    }
+
+    return {
+      missingBoardRoots: syncResult.missingBoardRoots,
+    } satisfies WorkspaceLoadResult
   }
 
   async function refreshWorkspace() {
@@ -247,8 +440,6 @@ export function useWorkspace() {
       && nextWorkspace.boardsBySlug[payload.selectedCard.sourceBoardSlug]
       ? payload.selectedCard.sourceBoardSlug
       : null
-
-    window.localStorage.setItem(STORAGE_KEY, path)
   }
 
   function applyWorkspaceSnapshot(
@@ -270,8 +461,6 @@ export function useWorkspace() {
         : nextWorkspace.boardOrder[0] ?? null
     selectedCardSlug.value = preserveSelection ? selectedCardSlug.value : null
     selectedCardSourceBoardSlug.value = preserveSelection ? selectedCardSourceBoardSlug.value : null
-
-    window.localStorage.setItem(STORAGE_KEY, path)
   }
 
   function clearWorkspaceState() {
@@ -281,7 +470,6 @@ export function useWorkspace() {
     currentBoardSlug.value = null
     selectedCardSlug.value = null
     selectedCardSourceBoardSlug.value = null
-    window.localStorage.removeItem(STORAGE_KEY)
   }
 
   async function replaceWorkspaceWatch(path: string) {
@@ -325,6 +513,11 @@ export function useWorkspace() {
   })
 
   onUnmounted(() => {
+    if (pendingConfigWrite !== null) {
+      window.clearTimeout(pendingConfigWrite)
+      pendingConfigWrite = null
+    }
+
     if (unlistenWorkspaceChanges) {
       unlistenWorkspaceChanges()
       unlistenWorkspaceChanges = null
@@ -346,13 +539,55 @@ export function useWorkspace() {
     selectedCardSourceBoard,
     isLoading,
     errorMessage,
+    viewPreferences,
     openWorkspace,
+    attachExistingBoard,
+    closeWorkspace,
     restoreWorkspace,
+    loadWorkspaceRoot,
+    registerKnownBoardRoots,
     selectBoard,
     selectCard,
     closeCard,
     applyWorkspaceMutation,
+    updateViewPreferences,
   }
+}
+
+function snapshotBoardRoots(snapshot: WorkspaceSnapshot) {
+  const projectRoot = parentDirectoryOfTodoRoot(snapshot.rootPath)
+  return snapshot.boards.map((board) => normalizeTodoRootPath(joinTodoRoot(projectRoot, board.path)))
+}
+
+function joinTodoRoot(projectRoot: string, boardPath: string) {
+  const normalizedProjectRoot = normalizeTodoRootPath(projectRoot)
+  const normalizedBoardPath = boardPath
+    .replace(/\\/g, '/')
+    .replace(/\/todo\.md$/i, '')
+
+  return `${normalizedProjectRoot}/${normalizedBoardPath}`
+}
+
+function coerceBoardRootSelection(selection: string) {
+  const normalizedSelection = normalizeTodoRootPath(selection)
+  return normalizedSelection.endsWith('/TODO') ? normalizedSelection : `${normalizedSelection}/TODO`
+}
+
+function parentDirectoryOfTodoRoot(todoRoot: string) {
+  return normalizeTodoRootPath(todoRoot).replace(/\/TODO$/i, '')
+}
+
+function normalizeTodoRootPath(path: string) {
+  return path.replace(/\\/g, '/').replace(/\/+$/, '')
+}
+
+function isBoardWithinWorkspaceTree(boardRoot: string, workspaceRoot: string) {
+  const normalizedBoardRoot = normalizeTodoRootPath(boardRoot)
+  const normalizedWorkspaceRoot = normalizeTodoRootPath(workspaceRoot)
+  const workspaceProjectRoot = `${parentDirectoryOfTodoRoot(normalizedWorkspaceRoot)}/`
+
+  return normalizedBoardRoot === normalizedWorkspaceRoot
+    || normalizedBoardRoot.startsWith(workspaceProjectRoot)
 }
 
 function buildBoardRelations(workspace: LoadedWorkspace | null) {

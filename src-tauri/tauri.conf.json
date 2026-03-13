@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Kanstack",
-  "version": "0.4.0",
+  "productName": "KanStack",
+  "version": "0.6.0",
   "identifier": "com.kanstack.app",
   "build": {
     "beforeDevCommand": "npm run dev",
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "Kanstack",
+        "title": "",
         "width": 1440,
         "height": 920,
         "maximized": true,
@@ -28,6 +28,9 @@
     }
   },
   "bundle": {
-    "active": false
+    "active": false,
+    "resources": {
+      "./Credits.html": "Credits.html"
+    }
   }
 }

@@ -1,4 +1,4 @@
-# Kanstack Frontend Design
+# KanStack Frontend Design
 
 ## Goal
 

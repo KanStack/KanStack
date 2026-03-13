@@ -1,4 +1,4 @@
-# Kanstack Archive Column Design
+# KanStack Archive Column Design
 
 ## Goal
 

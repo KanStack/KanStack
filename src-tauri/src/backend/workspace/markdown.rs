@@ -1,4 +1,11 @@
 pub(crate) fn extract_sub_board_targets(content: &str) -> Vec<String> {
+    extract_sub_board_links(content)
+        .into_iter()
+        .map(|(target, _title)| target)
+        .collect()
+}
+
+pub(crate) fn extract_sub_board_links(content: &str) -> Vec<(String, Option<String>)> {
     let mut targets = Vec::new();
     let mut in_target_section = false;
 
@@ -12,8 +19,8 @@ pub(crate) fn extract_sub_board_targets(content: &str) -> Vec<String> {
             continue;
         }
 
-        if let Some(target) = extract_bullet_link_target(line.trim()) {
-            targets.push(target);
+        if let Some(link) = extract_bullet_link(line.trim()) {
+            targets.push(link);
         }
     }
 
@@ -21,6 +28,10 @@ pub(crate) fn extract_sub_board_targets(content: &str) -> Vec<String> {
 }
 
 pub(crate) fn extract_bullet_link_target(line: &str) -> Option<String> {
+    extract_bullet_link(line).map(|(target, _title)| target)
+}
+
+pub(crate) fn extract_bullet_link(line: &str) -> Option<(String, Option<String>)> {
     if !line.starts_with("- [[") && !line.starts_with("* [[") {
         return None;
     }
@@ -28,12 +39,17 @@ pub(crate) fn extract_bullet_link_target(line: &str) -> Option<String> {
     let start = line.find("[[")?;
     let end = line.find("]]")?;
     let inner = &line[start + 2..end];
-    let target = inner.split('|').next().unwrap_or_default().trim();
+    let mut parts = inner.split('|');
+    let target = parts.next().unwrap_or_default().trim();
+    let title = parts.collect::<Vec<_>>().join("|").trim().to_string();
 
     if target.is_empty() {
         None
     } else {
-        Some(target.to_string())
+        Some((
+            target.to_string(),
+            if title.is_empty() { None } else { Some(title) },
+        ))
     }
 }
 
@@ -137,6 +153,50 @@ pub(crate) fn rewrite_wikilinks_for_rename(
     rewritten
 }
 
+pub(crate) fn replace_sub_board_section(
+    original: &str,
+    sub_boards: &[(String, Option<String>)],
+) -> String {
+    let mut kept_lines = Vec::new();
+    let mut skipping_sub_boards = false;
+
+    for line in original.lines() {
+        if line.starts_with("## ") {
+            if line.trim() == "## Sub Boards" {
+                skipping_sub_boards = true;
+                continue;
+            }
+
+            if skipping_sub_boards {
+                skipping_sub_boards = false;
+            }
+        }
+
+        if !skipping_sub_boards {
+            kept_lines.push(line);
+        }
+    }
+
+    let mut rebuilt = kept_lines.join("\n").trim_end().to_string();
+
+    if !sub_boards.is_empty() {
+        if !rebuilt.is_empty() {
+            rebuilt.push_str("\n\n");
+        }
+
+        rebuilt.push_str("## Sub Boards");
+        for (target, title) in sub_boards {
+            match title {
+                Some(title) => rebuilt.push_str(&format!("\n\n- [[{target}|{title}]]")),
+                None => rebuilt.push_str(&format!("\n\n- [[{target}]]")),
+            }
+        }
+    }
+
+    rebuilt.push('\n');
+    rebuilt
+}
+
 pub(crate) fn normalize_wikilink_target(target: &str) -> String {
     target
         .trim_start_matches("./")
@@ -169,7 +229,10 @@ fn is_deleted_card_bullet_line(line: &str, slug: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{remove_board_target_from_markdown, rewrite_wikilinks_for_rename};
+    use super::{
+        extract_sub_board_links, remove_board_target_from_markdown, replace_sub_board_section,
+        rewrite_wikilinks_for_rename,
+    };
 
     #[test]
     fn rewrites_card_links_for_rename() {
@@ -198,5 +261,31 @@ mod tests {
 
         assert!(!updated.contains("remove-me"));
         assert!(updated.contains("keep-me"));
+    }
+
+    #[test]
+    fn replaces_sub_board_section() {
+        let original =
+            "# Board\n\n## Todo\n\n- [[cards/task|Task]]\n\n## Sub Boards\n\n- [[old/TODO|Old]]\n";
+        let updated = replace_sub_board_section(
+            original,
+            &[("child/TODO".to_string(), Some("Child".to_string()))],
+        );
+
+        assert!(updated.contains("## Sub Boards\n\n- [[child/TODO|Child]]"));
+        assert!(!updated.contains("old/TODO"));
+    }
+
+    #[test]
+    fn extracts_sub_board_links_with_optional_titles() {
+        let original = "## Sub Boards\n\n- [[child/TODO|Child]]\n\n- [[plain/TODO]]\n";
+
+        assert_eq!(
+            extract_sub_board_links(original),
+            vec![
+                ("child/TODO".to_string(), Some("Child".to_string())),
+                ("plain/TODO".to_string(), None),
+            ],
+        );
     }
 }

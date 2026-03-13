@@ -1,4 +1,4 @@
-# Kanstack Sub-board Rollup Implementation Plan
+# KanStack Sub-board Rollup Implementation Plan
 
 ## Phase 1: Recursive View Model
 

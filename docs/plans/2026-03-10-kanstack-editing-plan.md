@@ -1,4 +1,4 @@
-# Kanstack Editing Implementation Plan
+# KanStack Editing Implementation Plan
 
 ## Phase 1: File Write Foundation
 

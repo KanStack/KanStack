@@ -1,4 +1,4 @@
-# Kanstack Global Columns Design
+# KanStack Global Columns Design
 
 ## Goal
 

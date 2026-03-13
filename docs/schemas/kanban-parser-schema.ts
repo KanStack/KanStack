@@ -64,7 +64,6 @@ export interface KanbanBoardLink {
 }
 
 export interface KanbanBoardSettings extends MarkdownRecord {
-  "sort-order"?: "manual" | "title" | "due" | "priority" | "updated" | "created"
   "group-by"?: "none" | "section" | "assignee" | "priority" | "type" | "due"
   "show-empty-columns"?: boolean
   "show-sub-boards"?: boolean
@@ -75,7 +74,6 @@ export interface KanbanBoardSettings extends MarkdownRecord {
 }
 
 export interface KanbanColumnSettings extends MarkdownRecord {
-  "sort-order"?: "manual" | "title" | "due" | "priority" | "updated" | "created"
   "wip-limit"?: number
   collapsed?: boolean
   "default-section"?: string

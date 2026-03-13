@@ -1,4 +1,4 @@
-# Kanstack Board Navigation Design
+# KanStack Board Navigation Design
 
 ## Goal
 

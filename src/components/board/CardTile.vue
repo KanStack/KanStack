@@ -53,6 +53,33 @@ const preview = computed(() => {
     return line ?? "No details yet";
 });
 
+const dueLabel = computed(() => {
+    if (!props.card || typeof props.card.metadata.due !== "string") {
+        return null;
+    }
+
+    const raw = props.card.metadata.due.trim();
+    if (!raw) {
+        return null;
+    }
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) {
+        return `Due ${raw}`;
+    }
+
+    const dateLabel = new Intl.DateTimeFormat(undefined, {
+        day: "numeric",
+        month: "short",
+    }).format(parsed);
+    const timeLabel = new Intl.DateTimeFormat(undefined, {
+        hour: "numeric",
+        minute: "2-digit",
+    }).format(parsed).toLowerCase();
+
+    return `Due ${dateLabel} ${timeLabel}`;
+});
+
 const badges = computed(() => {
     if (!props.card) {
         return [];
@@ -80,8 +107,9 @@ const badges = computed(() => {
         @pointermove="emit('pointerMove', $event)"
         @pointerup="emit('pointerUp', $event)"
     >
-        <div v-if="item.isRolledUp" class="card-tile__topline">
-            <span class="card-tile__source">{{ item.sourceBoardTitle ?? item.sourceBoardSlug }}</span>
+        <div v-if="item.isRolledUp || dueLabel" class="card-tile__topline">
+            <span v-if="item.isRolledUp" class="card-tile__source">{{ item.sourceBoardTitle ?? item.sourceBoardSlug }}</span>
+            <span v-if="dueLabel" class="card-tile__due">{{ dueLabel }}</span>
         </div>
         <div class="card-tile__title">{{ card?.title ?? item.slug }}</div>
         <div class="card-tile__preview">{{ preview }}</div>
@@ -119,6 +147,7 @@ const badges = computed(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
     gap: 0.6rem;
     color: var(--shade-4);
     font-size: 0.68rem;
@@ -132,6 +161,13 @@ const badges = computed(() => {
     border: 1px solid var(--shade-3);
     color: var(--shade-5);
     background: var(--shade-1);
+}
+
+.card-tile__due {
+    padding: 0.18rem 0.36rem;
+    border: 1px solid rgba(255, 204, 128, 0.35);
+    color: #ffd59a;
+    background: rgba(77, 49, 18, 0.22);
 }
 
 .card-tile__title {

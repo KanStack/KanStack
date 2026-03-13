@@ -1,5 +1,6 @@
 mod board;
 mod card;
+mod config;
 mod support;
 mod watcher;
 mod workspace;
@@ -8,8 +9,9 @@ use tauri::{AppHandle, Emitter};
 
 use crate::backend::{models::WorkspaceChangedPayload, WORKSPACE_CHANGED_EVENT};
 
-pub(crate) use board::{create_sub_board, delete_board, find_sub_boards, rename_board};
+pub(crate) use board::{create_board, delete_board, rename_board, sync_known_board_tree};
 pub(crate) use card::{create_card_in_board, delete_card_file, rename_card};
+pub(crate) use config::{load_app_config, save_app_config};
 pub(crate) use watcher::{unwatch_workspace, watch_workspace};
 pub(crate) use workspace::{
     apply_workspace_snapshot, load_workspace, save_board_file, save_card_file,

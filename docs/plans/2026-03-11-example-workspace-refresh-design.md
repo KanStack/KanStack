@@ -2,7 +2,7 @@
 
 ## Goal
 
-Replace the existing example workspace with a single realistic board that reflects the actual shipped state of the current `kanstack` app and a small amount of believable next-step work.
+Replace the existing example workspace with a single realistic board that reflects the actual shipped state of the current `KanStack` app and a small amount of believable next-step work.
 
 ## Shape
 

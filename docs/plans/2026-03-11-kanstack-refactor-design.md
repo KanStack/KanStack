@@ -1,4 +1,4 @@
-# Kanstack Refactor Design
+# KanStack Refactor Design
 
 ## Goal
 
