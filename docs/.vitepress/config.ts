@@ -5,7 +5,7 @@ import { withMermaid } from "vitepress-plugin-mermaid";
 export default withMermaid(
   defineConfig({
     srcDir: "wiki",
-    base: "/",
+    base: "/KanStack/",
     ignoreDeadLinks: true,
 
     title: "KanStack",
