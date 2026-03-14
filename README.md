@@ -62,9 +62,20 @@ Useful commands:
 npm run tauri:dev
 npm run build
 npm run test
+npm run wiki:export
 ```
 
 The frontend lives in `src/` and the Tauri shell/backend lives in `src-tauri/`.
+
+## Wiki export
+
+To snapshot the DeepWiki docs for this repo into local markdown files, run:
+
+```sh
+npm run wiki:export
+```
+
+This writes a browsable offline copy into `wiki/`, including a generated `wiki/README.md` index and inline mermaid fences when DeepWiki exposes them in the embedded markdown payload.
 
 ## Repo layout
 

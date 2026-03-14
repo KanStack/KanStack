@@ -36,6 +36,8 @@ title: KanStack
 
 ## Review
 
+- [[cards/crawl-deepwiki-locally|Crawl DeepWiki Locally]]
+
 - [[cards/add-board-sorting-and-filtering|Add Board Sorting and Filtering]]
 
 ## Done
