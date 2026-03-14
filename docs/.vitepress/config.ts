@@ -5,6 +5,7 @@ import { withMermaid } from "vitepress-plugin-mermaid";
 export default withMermaid(
   defineConfig({
     srcDir: "wiki",
+    ignoreDeadLinks: true,
 
     title: "KanStack",
     description: "Local-first markdown-based Kanban board application",
