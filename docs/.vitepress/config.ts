@@ -6,6 +6,7 @@ export default withMermaid(
   defineConfig({
     srcDir: "wiki",
     base: "/",
+    cleanUrls: true,
     ignoreDeadLinks: true,
 
     title: "KanStack",
