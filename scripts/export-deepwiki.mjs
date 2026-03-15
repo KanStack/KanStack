@@ -276,27 +276,6 @@ function buildIndex(pages, metadata, startUrl) {
   return `${lines.join("\n")}\n`;
 }
 
-function buildManifest(pages, metadata, startUrl) {
-  return JSON.stringify(
-    {
-      exportedAt: new Date().toISOString(),
-      lastIndexed: metadata.date,
-      indexedCommit: metadata.commit,
-      pages: pages.map((page) => ({
-        depth: page.depth,
-        fileName: page.fileName,
-        routeKey: page.routeKey,
-        slug: page.slug,
-        title: page.title,
-        url: new URL(page.href, startUrl).toString(),
-      })),
-      startUrl,
-    },
-    null,
-    2,
-  );
-}
-
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -318,24 +297,8 @@ async function main() {
     const markdown = extractMarkdownFromHtml(html, page.title);
     const rewritten = rewriteLinks(markdown, pagesByRouteKey);
 
-    await writeFile(
-      path.join(outputDir, page.fileName),
-      `${rewritten.trim()}\n`,
-      "utf8",
-    );
     console.log(`exported ${page.fileName}`);
   }
-
-  await writeFile(
-    path.join(outputDir, "README.md"),
-    buildIndex(pages, metadata, options.startUrl),
-    "utf8",
-  );
-  await writeFile(
-    path.join(outputDir, "_manifest.json"),
-    buildManifest(pages, metadata, options.startUrl),
-    "utf8",
-  );
 
   console.log(`wrote ${pages.length} pages to ${outputDir}`);
 }
