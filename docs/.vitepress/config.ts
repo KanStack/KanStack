@@ -57,6 +57,9 @@ export default withMermaid(
     title: "KanStack",
     description: "Local-first markdown-based Kanban board application",
     appearance: false,
+    mermaid: {
+      theme: "dark",
+    },
     head: [
       ["link", { rel: "icon", href: "/favicon.ico" }],
       ["link", { rel: "icon", type: "image/png", href: "/logo.png" }],

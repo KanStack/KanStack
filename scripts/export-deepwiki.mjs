@@ -248,33 +248,6 @@ function rewriteLinks(markdown, pagesByRouteKey) {
   return output;
 }
 
-function buildIndex(pages, metadata, startUrl) {
-  const lines = [
-    "# DeepWiki Export",
-    "",
-    `- Source: [${startUrl}](${startUrl})`,
-    `- Pages: ${pages.length}`,
-  ];
-
-  if (metadata.date) {
-    lines.push(`- Last indexed: ${metadata.date}`);
-  }
-
-  if (metadata.commit) {
-    lines.push(`- Indexed commit: \`${metadata.commit}\``);
-  }
-
-  lines.push("", "## Pages", "");
-
-  for (const page of pages) {
-    const indent = "  ".repeat(page.depth);
-    lines.push(`${indent}- [${page.title}](${page.fileName})`);
-  }
-
-  lines.push("", "## Refresh", "", "```sh", "npm run wiki:export", "```", "");
-
-  return `${lines.join("\n")}\n`;
-}
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
