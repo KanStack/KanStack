@@ -98,6 +98,13 @@ body {
     background: transparent !important;
 }
 
+.VPHomeHero {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: calc(100vh - 64px) !important;
+}
+
 .VPHero {
     background: transparent !important;
 }
@@ -175,6 +182,14 @@ body {
     font-weight: 700 !important;
     letter-spacing: 0.14em !important;
     text-transform: uppercase !important;
+}
+
+.VPNavBar .logo {
+    height: 2rem !important;
+}
+
+.VPLocalNav .logo {
+    height: 2rem !important;
 }
 
 .VPSidebar {
@@ -264,12 +279,17 @@ body {
     background: var(--shade-1) !important;
     border: 1px solid var(--shade-3) !important;
     border-radius: 0 !important;
+    margin: 0 !important;
+}
+
+.vp-doc .vp-block {
+    margin: 0 !important;
 }
 
 .vp-doc [class*="language-"] code {
     background: transparent !important;
     border: none !important;
-    padding: 0 !important;
+    padding: 10px !important;
 }
 
 .vp-doc table {
@@ -332,6 +352,10 @@ body {
     color: var(--shade-5);
 }
 
+.header-anchor {
+    display: none;
+}
+
 .VPLocalNav {
     background: rgba(20, 20, 20, 0.9) !important;
     backdrop-filter: blur(14px) !important;
@@ -352,6 +376,10 @@ body {
 
 .content-container {
     max-width: 100% !important;
+}
+
+.container {
+    width: 100% !important;
 }
 
 .VPDocFooter {
@@ -401,6 +429,11 @@ body {
             16px 16px,
             16px 16px,
             auto;
+        overflow-x: hidden;
+    }
+
+    html {
+        overflow-x: hidden;
     }
 
     .VPDoc {
@@ -410,20 +443,16 @@ body {
 
     .vp-doc table {
         display: block;
+        max-width: 100%;
         overflow-x: auto;
-        white-space: nowrap;
     }
 
     .vp-doc pre {
-        margin-left: -1rem !important;
-        margin-right: -1rem !important;
-        border-left: none !important;
-        border-right: none !important;
-        border-radius: 0 !important;
+        max-width: 100%;
+        overflow-x: auto;
     }
 
     .vp-doc [class*="language-"] {
-        margin-left: -1rem !important;
-        margin-right: -1rem !important;
+        max-width: calc(100vw - 2rem);
     }
 }

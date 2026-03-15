@@ -3,11 +3,11 @@ layout: home
 
 hero:
   name: "KanStack"
-  tagline: Markdown-based project management that stays on your machine
+  tagline: Local markdown project management
   actions:
-    - theme: alt
-      text: Overview
-      link: /1-overview
     - theme: brand
-      text: Get Started
-      link: /2-getting-started
+      text: Download
+      link: https://github.com/KanStack/KanStack
+    - theme: alt
+      text: Docs
+      link: /1-overview

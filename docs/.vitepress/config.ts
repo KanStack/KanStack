@@ -53,6 +53,9 @@ export default withMermaid(
     cleanUrls: true,
     ignoreDeadLinks: true,
     rewrites,
+    vite: {
+      publicDir: "../.vitepress/public",
+    },
 
     title: "KanStack",
     description: "Local-first markdown-based Kanban board application",
@@ -69,8 +72,7 @@ export default withMermaid(
       siteTitle: "KanStack",
 
       nav: [
-        { text: "Home", link: "/" },
-        { text: "Overview", link: "/overview" },
+        { text: "About", link: "/overview" },
         { text: "Getting Started", link: "/getting-started" },
       ],
 
@@ -98,7 +100,10 @@ export default withMermaid(
           collapsed: false,
           items: [
             { text: "Core Concepts", link: "/core-concepts" },
-            { text: "Workspaces & TODO Structure", link: "/workspaces-and-todo-structure" },
+            {
+              text: "Workspaces & TODO Structure",
+              link: "/workspaces-and-todo-structure",
+            },
             { text: "Boards & Sub-boards", link: "/boards-and-sub-boards" },
             { text: "Cards", link: "/cards" },
             { text: "Markdown Format", link: "/markdown-format" },
@@ -109,7 +114,10 @@ export default withMermaid(
           collapsed: false,
           items: [
             { text: "Frontend Guide", link: "/frontend-guide" },
-            { text: "Main Application Component", link: "/main-application-component" },
+            {
+              text: "Main Application Component",
+              link: "/main-application-component",
+            },
             { text: "Composables Overview", link: "/composables-overview" },
             { text: "useWorkspace", link: "/useworkspace" },
             { text: "useBoardActions", link: "/useboardactions" },
@@ -118,7 +126,10 @@ export default withMermaid(
             { text: "CardEditorModal", link: "/cardeditormodal" },
             { text: "Frontend Utilities", link: "/frontend-utilities" },
             { text: "Workspace Parsing", link: "/workspace-parsing" },
-            { text: "Board/Card Serialization", link: "/board-and-card-serialization" },
+            {
+              text: "Board/Card Serialization",
+              link: "/board-and-card-serialization",
+            },
             { text: "Path/Slug Management", link: "/path-and-slug-management" },
           ],
         },
@@ -127,7 +138,10 @@ export default withMermaid(
           collapsed: false,
           items: [
             { text: "Backend Guide", link: "/backend-guide" },
-            { text: "Entry Point & Menu System", link: "/main-entry-point-and-menu-system" },
+            {
+              text: "Entry Point & Menu System",
+              link: "/main-entry-point-and-menu-system",
+            },
             { text: "Command Handlers", link: "/command-handlers" },
             { text: "Workspace Operations", link: "/workspace-operations" },
             { text: "File System Watching", link: "/file-system-watching" },
@@ -160,5 +174,5 @@ export default withMermaid(
         level: [2, 3],
       },
     },
-  })
+  }),
 );
