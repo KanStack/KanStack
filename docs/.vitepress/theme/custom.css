@@ -402,4 +402,28 @@ body {
             16px 16px,
             auto;
     }
+
+    .VPDoc {
+        margin: 0.5rem !important;
+        padding: 1rem !important;
+    }
+
+    .vp-doc table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+    }
+
+    .vp-doc pre {
+        margin-left: -1rem !important;
+        margin-right: -1rem !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-radius: 0 !important;
+    }
+
+    .vp-doc [class*="language-"] {
+        margin-left: -1rem !important;
+        margin-right: -1rem !important;
+    }
 }
