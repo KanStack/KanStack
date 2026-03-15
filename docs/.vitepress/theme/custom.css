@@ -94,26 +94,34 @@ body {
     background: var(--shade-4);
 }
 
+.VPContent {
+    background: transparent !important;
+    height: 100vh !important;
+}
+
 .VPHome {
     background: transparent !important;
+    display: flex !important;
+    flex-direction: column !important;
+    margin-bottom: 0 !important;
+    height: 100% !important;
 }
 
 .VPHomeHero {
+    margin: 20px !important;
+    flex: 1 !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    min-height: calc(100vh - 64px) !important;
-}
-
-.VPHero {
-    background: transparent !important;
+    background: var(--shade-2) !important;
+    padding: 20px !important;
+    border: 1px solid var(--shade-3) !important;
 }
 
 .VPHero .name {
     font-family: "JetBrains Mono", monospace !important;
     font-weight: 700 !important;
     letter-spacing: 0.14em !important;
-    text-transform: uppercase !important;
 }
 
 .VPHero .tagline {
@@ -362,10 +370,6 @@ body {
     border-top: 1px solid var(--shade-3) !important;
 }
 
-.VPContent {
-    background: transparent !important;
-}
-
 .VPDoc {
     background: rgba(20, 20, 20, 0.9) !important;
     border: 1px solid var(--shade-3) !important;
@@ -380,6 +384,7 @@ body {
 
 .container {
     width: 100% !important;
+    max-width: 1276px !important;
 }
 
 .VPDocFooter {

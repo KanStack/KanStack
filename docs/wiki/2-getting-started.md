@@ -244,7 +244,7 @@ sequenceDiagram
     participant BoardCanvas["BoardCanvas Component"]
     participant useBoardActions["useBoardActions"]
     participant Serialize["serializeBoard"]
-    participant Backend["Rust Backend<br/>save_board_file"]
+    participant Backend["Rust Backend save_board_file"]
     participant FS["File System"]
     
     User->>BoardCanvas: "Click '+' in column"
