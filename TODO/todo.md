@@ -32,9 +32,9 @@ title: KanStack
 
 ## In Progress
 
-- [[cards/largest-file-simplification-pass|Largest File Simplification Pass]]
-
 ## Review
+
+- [[cards/card-move-regression-after-view-prefs|Card move regression after view prefs]]
 
 - [[cards/crawl-deepwiki-locally|Crawl DeepWiki Locally]]
 

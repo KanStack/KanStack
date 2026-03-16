@@ -17,14 +17,14 @@ describe('board view preferences', () => {
     expect(boardView.columns[0].sections[0].cards.map((card) => card.slug)).toEqual(['b-card', 'a-card'])
   })
 
-  it('filters cards by assignee and disables reorder when filters are active', () => {
+  it('filters cards by assignee and keeps reorder available when filters are active', () => {
     const preferences = createDefaultBoardViewPreferences()
     preferences.filters.assignee = 'galen'
 
     const filtered = applyBoardViewPreferences(createBoardView(), createCardsBySlug(), preferences)
 
     expect(filtered.columns[0].sections[0].cards.map((card) => card.slug)).toEqual(['a-card'])
-    expect(isCardReorderEnabled(preferences)).toBe(false)
+    expect(isCardReorderEnabled(preferences)).toBe(true)
   })
 })
 

@@ -66,8 +66,8 @@ export function hasActiveBoardViewFilters(filters: BoardViewFilters) {
   )
 }
 
-export function isCardReorderEnabled(preferences: BoardViewPreferences) {
-  return preferences.sort === 'manual' && !hasActiveBoardViewFilters(preferences.filters)
+export function isCardReorderEnabled(_preferences: BoardViewPreferences) {
+  return true
 }
 
 export function countActiveBoardViewFilters(filters: BoardViewFilters) {
