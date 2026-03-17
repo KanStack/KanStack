@@ -97,8 +97,8 @@ const badges = computed(() => {
 
 <template>
     <button
-        class="card-tile"
-        :class="{ 'card-tile--selected': selected }"
+        class="w-full flex flex-col gap-2 p-3.5 border border-border/60 bg-gradient-to-b from-surface to-surface-1 text-left"
+        :class="{ 'selected-ring': selected }"
         :data-card-key="`${item.sourceBoardSlug}:${item.slug}`"
         type="button"
         @click="handleClick"
@@ -107,92 +107,22 @@ const badges = computed(() => {
         @pointermove="emit('pointerMove', $event)"
         @pointerup="emit('pointerUp', $event)"
     >
-        <div v-if="item.isRolledUp || dueLabel" class="card-tile__topline">
-            <span v-if="item.isRolledUp" class="card-tile__source">{{ item.sourceBoardTitle ?? item.sourceBoardSlug }}</span>
-            <span v-if="dueLabel" class="card-tile__due">{{ dueLabel }}</span>
+        <div v-if="item.isRolledUp || dueLabel" class="flex items-center justify-between flex-wrap gap-2.5 text-text-muted text-xs tracking-wider uppercase">
+            <span v-if="item.isRolledUp" class="shrink-0 px-1.5 py-0.5 border border-border/60 text-text bg-surface-1">{{ item.sourceBoardTitle ?? item.sourceBoardSlug }}</span>
+            <span v-if="dueLabel" class="badge badge-warning">{{ dueLabel }}</span>
         </div>
-        <div class="card-tile__title">{{ card?.title ?? item.slug }}</div>
-        <div class="card-tile__preview">{{ preview }}</div>
+        <div class="text-text text-body">{{ card?.title ?? item.slug }}</div>
+        <div class="text-text-muted text-body">{{ preview }}</div>
 
-        <div v-if="badges.length" class="card-tile__badges">
+        <div v-if="badges.length" class="flex flex-wrap gap-1.5">
             <span
                 v-for="badge in badges"
                 :key="badge"
-                class="card-tile__badge"
+                class="badge"
                 >{{ badge }}</span
             >
         </div>
     </button>
 </template>
 
-<style scoped>
-.card-tile {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    padding: 0.9rem;
-    border: 1px solid var(--shade-3);
-    background: linear-gradient(180deg, var(--shade-2), var(--shade-1));
-    text-align: left;
-}
 
-.card-tile--selected {
-    border-color: var(--shade-5);
-    box-shadow: inset 0 0 0 1px var(--shade-5);
-    background: linear-gradient(180deg, var(--shade-3), var(--shade-2));
-}
-
-.card-tile__topline {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.6rem;
-    color: var(--shade-4);
-    font-size: 0.68rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.card-tile__source {
-    flex-shrink: 0;
-    padding: 0.18rem 0.36rem;
-    border: 1px solid var(--shade-3);
-    color: var(--shade-5);
-    background: var(--shade-1);
-}
-
-.card-tile__due {
-    padding: 0.18rem 0.36rem;
-    border: 1px solid rgba(255, 204, 128, 0.35);
-    color: #ffd59a;
-    background: rgba(77, 49, 18, 0.22);
-}
-
-.card-tile__title {
-    color: var(--shade-5);
-    font-size: 0.92rem;
-    line-height: 1.45;
-}
-
-.card-tile__preview {
-    color: var(--shade-4);
-    font-size: 0.78rem;
-    line-height: 1.5;
-}
-
-.card-tile__badges {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-}
-
-.card-tile__badge {
-    padding: 0.22rem 0.42rem;
-    border: 1px solid var(--shade-3);
-    color: var(--shade-5);
-    font-size: 0.68rem;
-    text-transform: uppercase;
-}
-</style>

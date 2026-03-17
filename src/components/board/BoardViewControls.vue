@@ -11,10 +11,15 @@ type FilterKind = 'none' | 'assignee' | 'tag' | 'priority' | 'type' | 'due'
 const props = defineProps<{
   cardsBySlug: Record<string, KanbanCardDocument>
   preferences: BoardViewPreferences
+  rollupBoardCount?: number
+  includeSubBoards?: boolean
+  showArchiveColumn?: boolean
 }>()
 
 const emit = defineEmits<{
   updatePreferences: [preferences: BoardViewPreferences]
+  toggleSubBoards: []
+  toggleArchiveColumn: []
 }>()
 
 const filterOptions = computed(() => collectBoardViewFilterOptions(props.cardsBySlug))
@@ -194,9 +199,9 @@ function detectFilterKind(preferences: BoardViewPreferences): FilterKind {
 </script>
 
 <template>
-  <div class="board-view-controls">
+  <div class="flex flex-wrap items-center gap-2">
     <input
-      class="board-view-controls__search"
+      class="input w-40"
       aria-label="Search cards"
       type="search"
       placeholder="search"
@@ -225,34 +230,24 @@ function detectFilterKind(preferences: BoardViewPreferences): FilterKind {
       :options="activeValueOptions"
       @update:model-value="updateFilterValue"
     />
+
+    <button
+      v-if="rollupBoardCount"
+      class="btn w-40"
+      type="button"
+      @click="emit('toggleSubBoards')"
+    >
+      subboards {{ includeSubBoards ? 'on' : 'off' }}
+    </button>
+
+    <button
+      class="btn w-40"
+      type="button"
+      @click="emit('toggleArchiveColumn')"
+    >
+      archive {{ showArchiveColumn ? 'on' : 'off' }}
+    </button>
   </div>
 </template>
 
-<style scoped>
-.board-view-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.45rem;
-}
 
-.board-view-controls__search {
-  min-width: 10rem;
-  min-height: 2.1rem;
-  padding: 0.45rem 0.65rem;
-  border: 1px solid var(--shade-3);
-  background: var(--shade-2);
-  color: var(--shade-5);
-  font: inherit;
-  font-size: 0.72rem;
-}
-
-.board-view-controls__search:hover,
-.board-view-controls__search:focus {
-  border-color: var(--shade-5);
-  background: var(--shade-3);
-  outline: none;
-}
-
-</style>
