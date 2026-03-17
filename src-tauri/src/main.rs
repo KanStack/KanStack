@@ -91,6 +91,7 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
             .build(app)?;
     let toggle_sub_boards =
         MenuItemBuilder::with_id("toggle-sub-boards", "Toggle Sub Boards").build(app)?;
+    let toggle_theme = MenuItemBuilder::with_id("toggle-theme", "Toggle Theme").build(app)?;
     let delete_current_board =
         MenuItemBuilder::with_id("delete-current-board", "Delete Current Board").build(app)?;
     let new_column = MenuItemBuilder::with_id("new-column", "New Column").build(app)?;
@@ -130,6 +131,8 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
         .separator()
         .item(&toggle_archive_column)
         .item(&toggle_sub_boards)
+        .separator()
+        .item(&toggle_theme)
         .separator()
         .item(&delete_current_board)
         .build()?;
@@ -172,6 +175,7 @@ fn map_menu_action(menu_id: &str) -> Option<&'static str> {
         "delete-selected-column" => Some("delete-selected-column"),
         "toggle-archive-column" => Some("toggle-archive-column"),
         "toggle-sub-boards" => Some("toggle-sub-boards"),
+        "toggle-theme" => Some("toggle-theme"),
         "delete-current-board" => Some("delete-current-board"),
         "archive-selected-cards" => Some("archive-selected-cards"),
         "delete-selected-cards" => Some("delete-selected-cards"),

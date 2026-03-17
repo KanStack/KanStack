@@ -147,7 +147,7 @@ fn legacy_known_board_index_path(app_handle: &AppHandle) -> Result<PathBuf, Stri
 #[cfg(test)]
 mod tests {
     use crate::backend::models::{
-        AppConfig, AppViewDueStatus, AppViewFilters, AppViewPreferences, AppViewSort,
+        AppConfig, AppTheme, AppViewDueStatus, AppViewFilters, AppViewPreferences, AppViewSort,
     };
 
     use super::{parse_app_config, serialize_app_config};
@@ -203,6 +203,7 @@ view:
                     due_status: AppViewDueStatus::DueSoon,
                 },
             },
+            theme: AppTheme::Light,
         };
 
         let markdown = serialize_app_config(&config).expect("config serializes");
@@ -216,5 +217,6 @@ view:
             reparsed.view.filters.due_status,
             AppViewDueStatus::DueSoon
         ));
+        assert!(matches!(reparsed.theme, AppTheme::Light));
     }
 }

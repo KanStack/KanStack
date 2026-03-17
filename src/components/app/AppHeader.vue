@@ -76,19 +76,17 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
 
       <div v-if="childBoards.length" class="flex items-center min-w-0">
         <div class="flex flex-nowrap gap-1.5 min-w-0 overflow-hidden max-[900px]:justify-start">
-<button
-              v-for="board in childBoards"
-              :key="board.slug"
-              class="max-w-40 px-2 py-1 border border-border bg-surface-1 text-text truncate text-sm hover:border-text hover:bg-surface"
-              type="button"
-              @click="emit('selectBoard', board.slug)"
-            >
-              {{ board.title }}
-            </button>
+          <button
+            v-for="board in childBoards"
+            :key="board.slug"
+            class="max-w-40 px-2 py-1 border border-border bg-surface-1 text-text truncate text-sm hover:border-text hover:bg-surface"
+            type="button"
+            @click="emit('selectBoard', board.slug)"
+          >
+            {{ board.title }}
+          </button>
         </div>
       </div>
     </div>
   </header>
 </template>
-
-

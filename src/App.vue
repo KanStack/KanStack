@@ -38,6 +38,7 @@ const {
     isLoading,
     errorMessage,
     viewPreferences,
+    theme,
     openWorkspace,
     attachExistingBoard,
     closeWorkspace,
@@ -49,6 +50,7 @@ const {
     closeCard,
     applyWorkspaceMutation,
     updateViewPreferences,
+    setTheme,
 } = useWorkspace();
 
 const appBoardActions = useBoardActions({
@@ -95,6 +97,11 @@ const emptyStateCopy = computed(() => {
 
     return "Open an existing or create a new KanStack board ";
 });
+
+function cycleTheme() {
+    const nextTheme = theme.value === 'dark' ? 'light' : 'dark'
+    setTheme(nextTheme)
+}
 
 function createHistoryStateSnapshot(): HistoryStateSnapshot | null {
     if (!workspace.value) {
@@ -1181,6 +1188,9 @@ async function dispatchMenuAction(action: string) {
             break;
         case "toggle-sub-boards":
             await toggleSubBoards();
+            break;
+        case "toggle-theme":
+            cycleTheme();
             break;
         case "delete-current-board":
             await deleteCurrentBoard();
