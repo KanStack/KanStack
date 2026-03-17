@@ -7,6 +7,8 @@ import AppHeader from "@/components/app/AppHeader.vue";
 import AppMessageBanner from "@/components/app/AppMessageBanner.vue";
 import BoardCanvas from "@/components/board/BoardCanvas.vue";
 import CardEditorModal from "@/components/card/CardEditorModal.vue";
+import ContextMenu from "@/components/ui/ContextMenu.vue";
+import ContextMenuItem from "@/components/ui/ContextMenuItem.vue";
 import { useBoardActions } from "@/composables/useBoardActions";
 import { useBoardSelection } from "@/composables/useBoardSelection";
 import {
@@ -533,6 +535,141 @@ function openCard(selection: WorkspaceCardSelection) {
     keyboardMoveMode.value = null;
     boardSelection.selectSingle(selection);
     selectCard(selection);
+}
+
+interface CardContextMenuState {
+    type: "card";
+    cardSlug: string;
+    cardPath: string;
+    x: number;
+    y: number;
+}
+
+interface BoardContextMenuState {
+    type: "board";
+    boardPath: string;
+    x: number;
+    y: number;
+}
+
+type ContextMenuState = CardContextMenuState | BoardContextMenuState | null;
+
+const contextMenu = shallowRef<ContextMenuState>(null);
+
+function handleCardContextMenu(event: MouseEvent, cardSlug: string, cardPath: string | null) {
+    if (!workspace.value?.rootPath || !cardPath) {
+        return;
+    }
+
+    contextMenu.value = {
+        type: "card",
+        cardSlug,
+        cardPath,
+        x: event.clientX,
+        y: event.clientY,
+    };
+}
+
+function handleBoardContextMenu(event: MouseEvent, boardPath: string) {
+    if (!workspace.value?.rootPath) {
+        return;
+    }
+
+    contextMenu.value = {
+        type: "board",
+        boardPath,
+        x: event.clientX,
+        y: event.clientY,
+    };
+}
+
+function handleBreadcrumbContextMenu(event: MouseEvent, slug: string) {
+    if (!workspace.value?.rootPath) {
+        return;
+    }
+
+    const board = workspace.value.boardsBySlug[slug];
+    if (!board) {
+        return;
+    }
+
+    contextMenu.value = {
+        type: "board",
+        boardPath: board.path,
+        x: event.clientX,
+        y: event.clientY,
+    };
+}
+
+function closeContextMenu() {
+    contextMenu.value = null;
+}
+
+async function revealInFileManager(relativePath: string) {
+    if (!workspace.value?.rootPath) {
+        return;
+    }
+
+    try {
+        await invoke("reveal_in_file_manager", {
+            root: workspace.value.rootPath,
+            relativePath,
+        });
+    } catch (error) {
+        console.error("Failed to reveal in file manager:", error);
+    }
+}
+
+async function copyPathToClipboard(relativePath: string) {
+    if (!workspace.value?.rootPath) {
+        return;
+    }
+
+    const projectRoot = workspace.value.rootPath.replace(/[\/\\]TODO$/i, "");
+    const absolutePath = `${projectRoot}/${relativePath}`;
+
+    try {
+        await navigator.clipboard.writeText(absolutePath);
+    } catch (error) {
+        console.error("Failed to copy path to clipboard:", error);
+    }
+}
+
+function handleContextMenuReveal() {
+    if (!contextMenu.value) {
+        return;
+    }
+
+    const relativePath = contextMenu.value.type === "card"
+        ? contextMenu.value.cardPath
+        : contextMenu.value.boardPath;
+
+    closeContextMenu();
+    void revealInFileManager(relativePath);
+}
+
+const revealInFinderLabel = computed(() => {
+    const platform = navigator.platform.toLowerCase();
+    if (platform.includes("win")) {
+        return "Show in Explorer";
+    }
+    if (platform.includes("linux")) {
+        return "Open Containing Folder";
+    }
+    return "Reveal in Finder";
+});
+
+function handleContextMenuCopyPath() {
+    if (!contextMenu.value) {
+        return;
+    }
+
+    const relativePath = contextMenu.value.type === "card"
+        ? contextMenu.value.cardPath
+        : contextMenu.value.boardPath;
+
+    closeContextMenu();
+    void copyPathToClipboard(relativePath);
 }
 
 async function handleCardMove(payload: {
@@ -1547,11 +1684,12 @@ watch(
 </script>
 
 <template>
-    <div class="h-full flex flex-col">
+    <div class="h-full flex flex-col" @contextmenu.prevent>
         <AppHeader
             :board-lineage="boardLineage"
             :child-boards="childBoards"
             @select-board="selectBoard"
+            @board-context-menu="handleBreadcrumbContextMenu"
         />
 
         <AppMessageBanner
@@ -1574,6 +1712,8 @@ watch(
                     :workspace-root="workspace?.rootPath ?? null"
                     @activate-card="handleCardActivate"
                     @add-column="createColumn"
+                    @board-context-menu="handleBoardContextMenu"
+                    @card-context-menu="handleCardContextMenu"
                     @clear-selections="clearSelections"
                     @create-card="createCardFromBoard"
                     @move-card="handleCardMove"
@@ -1628,6 +1768,20 @@ watch(
             @close="closeCard"
             @delete-card="deleteSingleCard"
         />
+
+        <ContextMenu
+            :visible="contextMenu !== null"
+            :x="contextMenu?.x ?? 0"
+            :y="contextMenu?.y ?? 0"
+            @close="closeContextMenu"
+        >
+            <ContextMenuItem @click="handleContextMenuReveal">
+                {{ revealInFinderLabel }}
+            </ContextMenuItem>
+            <ContextMenuItem @click="handleContextMenuCopyPath">
+                Copy Path
+            </ContextMenuItem>
+        </ContextMenu>
     </div>
 </template>
 

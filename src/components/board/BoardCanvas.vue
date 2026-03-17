@@ -65,6 +65,8 @@ const emit = defineEmits<{
         },
     ];
     openCard: [selection: WorkspaceCardSelection];
+    cardContextMenu: [event: MouseEvent, cardSlug: string, cardPath: string | null];
+    boardContextMenu: [event: MouseEvent, boardPath: string];
     reorderColumns: [payload: { draggedSlug: string; targetIndex: number }];
     renameBoard: [title: string];
     renameColumn: [payload: { name: string; slug: string }];
@@ -247,6 +249,15 @@ function handleOpenCard(selection: WorkspaceCardSelection) {
     emit("openCard", selection);
 }
 
+function handleCardContextMenu(event: MouseEvent, cardSlug: string, cardPath: string | null) {
+    emit("cardContextMenu", event, cardSlug, cardPath);
+}
+
+function handleBoardContextMenu(event: MouseEvent) {
+    event.preventDefault();
+    emit("boardContextMenu", event, props.board.path);
+}
+
 function handleCanvasClick(event: MouseEvent) {
     const target = event.target as HTMLElement | null;
     if (!target) {
@@ -349,7 +360,7 @@ onUnmounted(() => {
         class="h-full min-h-0 flex flex-col gap-4"
         @click="handleCanvasClick"
     >
-        <header class="flex items-start justify-between gap-4 px-4 py-2 max-[900px]:flex-col">
+        <header class="flex items-start justify-between gap-4 px-4 py-2 max-[900px]:flex-col" @contextmenu="handleBoardContextMenu">
             <div>
                 <button
                     v-if="!isEditingTitle"
@@ -417,6 +428,7 @@ onUnmounted(() => {
                         @pointer-up="drag.handlePointerUp"
                         @activate-card="handleActivateCard"
                         @open-card="handleOpenCard"
+                        @card-context-menu="handleCardContextMenu"
                         @rename-column="emit('renameColumn', $event)"
                         @select-column="emit('selectColumn', $event)"
                     />
@@ -450,6 +462,7 @@ onUnmounted(() => {
                     @pointer-up="drag.handlePointerUp"
                     @activate-card="handleActivateCard"
                     @open-card="handleOpenCard"
+                    @card-context-menu="handleCardContextMenu"
                     @rename-column="emit('renameColumn', $event)"
                     @select-column="emit('selectColumn', $event)"
                 />

@@ -75,6 +75,8 @@
         background-size: 24px 24px, 24px 24px;
         -webkit-font-smoothing: antialiased;
         -moz-osx-font-smoothing: grayscale;
+        -webkit-user-select: none;
+        user-select: none;
     }
 
     [data-theme="light"] body {
@@ -86,6 +88,13 @@
                 rgba(20, 20, 20, 0.03) 24px
             ),
             var(--color-surface-1);
+    }
+
+    input,
+    textarea,
+    [contenteditable="true"] {
+        -webkit-user-select: text;
+        user-select: text;
     }
 
     button,

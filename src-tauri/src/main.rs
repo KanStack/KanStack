@@ -9,9 +9,9 @@ use tauri::{AppHandle, Emitter};
 
 use crate::backend::commands::{
     apply_workspace_snapshot, create_board, create_card_in_board, delete_board, delete_card_file,
-    load_app_config, load_workspace, rename_board, rename_card, save_app_config, save_board_file,
-    save_card_file, save_workspace_boards, sync_known_board_tree, unwatch_workspace,
-    watch_workspace,
+    load_app_config, load_workspace, reveal_in_file_manager, rename_board, rename_card,
+    save_app_config, save_board_file, save_card_file, save_workspace_boards, sync_known_board_tree,
+    unwatch_workspace, watch_workspace,
 };
 use crate::backend::models::{MenuActionPayload, WorkspaceWatcherState};
 use crate::backend::MENU_ACTION_EVENT;
@@ -46,6 +46,7 @@ fn main() {
             sync_known_board_tree,
             watch_workspace,
             unwatch_workspace,
+            reveal_in_file_manager,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
