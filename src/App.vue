@@ -1537,7 +1537,7 @@ watch(
 </script>
 
 <template>
-    <div class="app-shell">
+    <div class="h-full flex flex-col">
         <AppHeader
             :board-lineage="boardLineage"
             :child-boards="childBoards"
@@ -1551,8 +1551,8 @@ watch(
             @close="dismissAppMessage"
         />
 
-        <main class="app-shell__main">
-            <div v-if="currentBoard" class="app-shell__panel">
+        <main class="flex-1 min-h-0 p-5">
+            <div v-if="currentBoard" class="h-full border border-border/60 bg-surface/90 p-4">
                 <BoardCanvas
                     :board="currentBoard"
                     :boards-by-slug="workspace?.boardsBySlug ?? {}"
@@ -1579,31 +1579,27 @@ watch(
                 />
             </div>
 
-            <section v-else class="app-shell__state">
-                <div class="app-shell__state-eyebrow">
+            <section v-else class="h-full border border-border/60 bg-surface/90 flex flex-col items-start justify-center gap-4 p-[min(8vw,4rem)]">
+                <div class="text-text-muted text-lg tracking-widest uppercase">
                     Built by and for devs
                 </div>
-                <h1 class="app-shell__state-title">KanStack</h1>
-                <p class="app-shell__state-copy">{{ emptyStateCopy }}</p>
-                <div class="app-shell__state-actions">
+                <h1 class="m-0 text-3xl">KanStack</h1>
+                <p class="max-w-[34rem] m-0 text-text-muted text-body">{{ emptyStateCopy }}</p>
+                <div class="flex flex-wrap gap-3">
                     <button
-                        class="app-shell__state-button"
+                        class="btn btn-secondary"
                         type="button"
                         @click="openWorkspaceFromMenu"
                     >
                         open board
                     </button>
                     <button
-                        class="app-shell__state-button app-shell__state-button--primary"
+                        class="btn btn-primary"
                         type="button"
                         :disabled="appBoardActions.isCreatingBoard.value"
                         @click="createBoardFromWorkspace"
                     >
-                        {{
-                            appBoardActions.isCreatingBoard.value
-                                ? "creating..."
-                                : "new board"
-                        }}
+                        {{ appBoardActions.isCreatingBoard.value ? "creating..." : "new board" }}
                     </button>
                 </div>
             </section>
@@ -1625,89 +1621,4 @@ watch(
     </div>
 </template>
 
-<style scoped>
-.app-shell {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
 
-.app-shell__main {
-    flex: 1;
-    min-height: 0;
-    padding: 1.25rem;
-}
-
-.app-shell__panel,
-.app-shell__state {
-    height: 100%;
-    border: 1px solid var(--shade-3);
-    background: rgba(20, 20, 20, 0.9);
-}
-
-.app-shell__panel {
-    padding: 1rem;
-}
-
-.app-shell__state {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 1rem;
-    padding: min(8vw, 4rem);
-}
-
-.app-shell__state-eyebrow {
-    color: var(--shade-4);
-    font-size: 0.98rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-}
-
-.app-shell__state-title {
-    margin: 0;
-    font-size: clamp(1.8rem, 3vw, 3rem);
-}
-
-.app-shell__state-copy {
-    max-width: 34rem;
-    margin: 0;
-    color: var(--shade-4);
-    line-height: 1.7;
-}
-
-.app-shell__state-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-
-.app-shell__state-button {
-    padding: 0.8rem 1rem;
-    border: 1px solid var(--shade-3);
-    background: var(--shade-2);
-    color: var(--shade-5);
-    font: inherit;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.app-shell__state-button:hover {
-    border-color: var(--shade-5);
-}
-
-.app-shell__state-button--primary {
-    background: var(--shade-5);
-    color: var(--shade-1);
-}
-
-.app-shell__state-button--primary:hover {
-    background: #ffffff;
-}
-
-.app-shell__state-button:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-}
-</style>

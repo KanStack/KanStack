@@ -346,24 +346,24 @@ onUnmounted(() => {
 <template>
     <section
         ref="boardCanvasEl"
-        class="board-canvas"
+        class="h-full min-h-0 flex flex-col gap-4"
         @click="handleCanvasClick"
     >
-        <header class="board-canvas__header">
+        <header class="flex items-start justify-between gap-4 px-4 py-2 max-[900px]:flex-col">
             <div>
                 <button
                     v-if="!isEditingTitle"
-                    class="board-canvas__title-button"
+                    class="btn-plain text-left"
                     type="button"
                     @click="startBoardTitleEdit"
                 >
-                    <h1 class="board-canvas__title">{{ board.title }}</h1>
+                    <h1 class="mt-1 mb-0 text-xl font-semibold">{{ board.title }}</h1>
                 </button>
                 <input
                     v-else
                     ref="boardTitleInput"
                     v-model="boardTitleDraft"
-                    class="board-canvas__title-input"
+                    class="w-[min(28rem,80vw)] mt-1 mb-0 btn-plain border-b border-text-muted text-xl font-semibold"
                     type="text"
                     :disabled="isRenamingBoard"
                     @blur="handleBoardTitleBlur"
@@ -371,49 +371,32 @@ onUnmounted(() => {
                 />
             </div>
 
-            <div class="board-canvas__meta">
-                <BoardViewControls
-                    :cards-by-slug="cardsBySlug"
-                    :preferences="viewPreferences"
-                    @update-preferences="emit('updateViewPreferences', $event)"
-                />
-
-                <button
-                    v-if="rollupBoardCount"
-                    class="board-canvas__toggle"
-                    type="button"
-                    @click="emit('toggleSubBoards')"
-                >
-                    subboards {{ includeSubBoards ? "on" : "off" }}
-                </button>
-                <button
-                    class="board-canvas__toggle"
-                    type="button"
-                    @click="emit('toggleArchiveColumn')"
-                >
-                    archive {{ showArchiveColumn ? "on" : "off" }}
-                </button>
-            </div>
+            <BoardViewControls
+                :cards-by-slug="cardsBySlug"
+                :preferences="viewPreferences"
+                :rollup-board-count="rollupBoardCount"
+                :include-sub-boards="includeSubBoards"
+                :show-archive-column="showArchiveColumn"
+                @update-preferences="emit('updateViewPreferences', $event)"
+                @toggle-sub-boards="emit('toggleSubBoards')"
+                @toggle-archive-column="emit('toggleArchiveColumn')"
+            />
         </header>
 
-        <div class="board-canvas__columns">
+        <div class="flex-1 min-h-0 flex items-stretch gap-0 overflow-x-auto overflow-y-hidden p-1">
             <template
                 v-for="(column, index) in movableColumns"
                 :key="column.slug"
             >
                 <div
-                    class="board-canvas__column-insert-slot"
-                    :class="{
-                        'board-canvas__column-insert-slot--active':
-                            columnDrag.state.insertIndex === index,
-                    }"
+                    class="w-4 shrink-0 flex items-stretch justify-center"
                     :data-column-drop-index="index"
                 >
-                    <div class="board-canvas__column-insert-marker"></div>
+                    <div class="w-0.5 rounded-full" :class="columnDrag.state.insertIndex === index ? 'bg-text' : 'bg-transparent'"></div>
                 </div>
 
                 <div
-                    class="board-canvas__column-item"
+                    class="flex"
                     data-column-reorder-item="true"
                     :data-column-index="index"
                 >
@@ -441,19 +424,15 @@ onUnmounted(() => {
             </template>
 
             <div
-                class="board-canvas__column-insert-slot"
-                :class="{
-                    'board-canvas__column-insert-slot--active':
-                        columnDrag.state.insertIndex === movableColumns.length,
-                }"
+                class="w-4 shrink-0 flex items-stretch justify-center"
                 :data-column-drop-index="movableColumns.length"
             >
-                <div class="board-canvas__column-insert-marker"></div>
+                <div class="w-0.5 rounded-full" :class="columnDrag.state.insertIndex === movableColumns.length ? 'bg-text' : 'bg-transparent'"></div>
             </div>
 
             <div
                 v-if="archiveColumn"
-                class="board-canvas__column-item"
+                class="flex"
                 data-column-reorder-item="true"
                 :data-column-index="movableColumns.length"
             >
@@ -479,145 +458,4 @@ onUnmounted(() => {
     </section>
 </template>
 
-<style scoped>
-.board-canvas {
-    height: 100%;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-}
 
-.board-canvas__header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    padding: 0 0.25rem;
-}
-
-.board-canvas__eyebrow {
-    color: var(--shade-4);
-    font-size: 0.68rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-}
-
-.board-canvas__title {
-    margin: 0.2rem 0 0;
-    font-size: 1.35rem;
-    font-weight: 600;
-}
-
-.board-canvas__title-button,
-.board-canvas__title-input {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-}
-
-.board-canvas__title-button {
-    text-align: left;
-    cursor: text;
-}
-
-.board-canvas__title-input {
-    width: min(28rem, 80vw);
-    margin: 0.2rem 0 0;
-    border-bottom: 1px solid var(--shade-4);
-    font-size: 1.35rem;
-    font-weight: 600;
-}
-
-.board-canvas__meta {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    color: var(--shade-4);
-    font-size: 0.74rem;
-}
-
-.board-canvas__toggle {
-    width: 8rem;
-    flex: 0 0 8rem;
-    padding: 0.5rem 0.75rem;
-    border: 1px solid var(--shade-3);
-    background: var(--shade-2);
-    color: var(--shade-5);
-    font: inherit;
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.board-canvas__toggle:hover {
-    border-color: var(--shade-5);
-    background: var(--shade-3);
-}
-
-.board-canvas__columns {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    align-items: stretch;
-    gap: 0;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding: 0.25rem;
-}
-
-.board-canvas__column-item {
-    display: flex;
-}
-
-.board-canvas__column-insert-slot {
-    width: 1rem;
-    flex: 0 0 1rem;
-    display: flex;
-    align-items: stretch;
-    justify-content: center;
-}
-
-.board-canvas__column-insert-marker {
-    width: 2px;
-    border-radius: 999px;
-    background: transparent;
-}
-
-.board-canvas__column-insert-slot--active .board-canvas__column-insert-marker {
-    background: var(--shade-5);
-}
-
-.board-canvas__subboards {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-
-.board-canvas__subboard {
-    padding: 0.7rem 0.9rem;
-    border: 1px solid var(--shade-3);
-    background: var(--shade-2);
-    color: var(--shade-5);
-    font: inherit;
-}
-
-.board-canvas__subboard:hover {
-    border-color: var(--shade-5);
-    background: var(--shade-3);
-}
-
-@media (max-width: 900px) {
-    .board-canvas__header {
-        flex-direction: column;
-    }
-
-    .board-canvas__meta {
-        justify-content: flex-start;
-    }
-}
-</style>

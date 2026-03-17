@@ -166,28 +166,23 @@ onUnmounted(() => {
 <template>
     <div
         v-if="open && displayCard"
-        class="card-editor"
+        class="fixed inset-0 flex justify-center p-8 bg-surface-1/5 backdrop-blur-sm max-[720px]:p-0"
         @click.self="handleClose"
     >
-        <article class="card-editor__panel">
-            <header class="card-editor__header">
+        <article
+            class="w-[min(62rem,100%)] h-full flex flex-col gap-4 p-5 border border-border/60 bg-surface/95 backdrop-blur-sm max-[720px]:w-full"
+        >
+            <header
+                class="flex items-start justify-between gap-3 max-[720px]:flex-col"
+            >
                 <div>
-                    <div class="card-editor__slug">{{ displayCard.slug }}</div>
-                    <h2 class="card-editor__title">Edit card</h2>
+                    <div class="label">{{ displayCard.slug }}</div>
+                    <h2 class="mt-1 mb-0 text-xl">Edit card</h2>
                 </div>
 
-                <div class="card-editor__actions">
-                    <div
-                        class="card-editor__status-dot"
-                        :class="{
-                            'card-editor__status-dot--saved':
-                                editor.saveStatus.value === 'saved',
-                        }"
-                        :title="editor.saveStatus.value"
-                        :aria-label="editor.saveStatus.value"
-                    ></div>
+                <div class="flex items-start justify-between gap-3">
                     <button
-                        class="card-editor__button card-editor__button--danger"
+                        class="btn btn-danger"
                         type="button"
                         :disabled="editor.isDeleting.value"
                         @click="handleDelete"
@@ -195,7 +190,7 @@ onUnmounted(() => {
                         {{ editor.isDeleting.value ? "deleting..." : "delete" }}
                     </button>
                     <button
-                        class="card-editor__button"
+                        class="btn"
                         type="button"
                         :disabled="editor.isDeleting.value || !sourceBoard"
                         @click="handleArchive"
@@ -203,8 +198,13 @@ onUnmounted(() => {
                         archive
                     </button>
                     <button
-                        class="card-editor__button"
+                        class="btn"
                         type="button"
+                        :class="
+                            editor.saveStatus.value === 'saved'
+                                ? 'border-accent'
+                                : 'border-danger'
+                        "
                         @click="handleClose"
                     >
                         done
@@ -212,26 +212,29 @@ onUnmounted(() => {
                 </div>
             </header>
 
-            <p v-if="editor.errorMessage.value" class="card-editor__error">
+            <p
+                v-if="editor.errorMessage.value"
+                class="m-0 p-3 border border-danger/35 text-text bg-danger/10"
+            >
                 {{ editor.errorMessage.value }}
             </p>
 
-            <div class="card-editor__grid">
-                <label class="card-editor__field card-editor__field--wide">
-                    <span>Title</span>
+            <div class="grid grid-cols-3 gap-3 max-[600px]:grid-cols-1">
+                <label class="flex flex-col gap-2 col-span-3 max-[600px]:col-span-1">
+                    <span class="label">Title</span>
                     <input
                         v-model="editor.draft.title"
-                        class="card-editor__input"
+                        class="input"
                         type="text"
                         @blur="handleBlur"
                     />
                 </label>
 
-                <label class="card-editor__field">
-                    <span>Type</span>
+                <label class="flex flex-col gap-2">
+                    <span class="label">Type</span>
                     <select
                         v-model="editor.draft.type"
-                        class="card-editor__input"
+                        class="input"
                         @blur="handleBlur"
                         @change="handleBlur"
                     >
@@ -244,11 +247,11 @@ onUnmounted(() => {
                     </select>
                 </label>
 
-                <label class="card-editor__field">
-                    <span>Priority</span>
+                <label class="flex flex-col gap-2">
+                    <span class="label">Priority</span>
                     <select
                         v-model="editor.draft.priority"
-                        class="card-editor__input"
+                        class="input"
                         @blur="handleBlur"
                         @change="handleBlur"
                     >
@@ -259,31 +262,31 @@ onUnmounted(() => {
                     </select>
                 </label>
 
-                <label class="card-editor__field">
-                    <span>Assignee</span>
+                <label class="flex flex-col gap-2">
+                    <span class="label">Assignee</span>
                     <input
                         v-model="editor.draft.assignee"
-                        class="card-editor__input"
+                        class="input"
                         type="text"
                         @blur="handleBlur"
                     />
                 </label>
 
-                <label class="card-editor__field">
-                    <span>Due</span>
+                <label class="flex flex-col gap-2">
+                    <span class="label">Due</span>
                     <input
                         v-model="editor.draft.due"
-                        class="card-editor__input"
+                        class="input"
                         type="datetime-local"
                         @blur="handleBlur"
                     />
                 </label>
 
-                <label class="card-editor__field">
-                    <span>Estimate</span>
+                <label class="flex flex-col gap-2">
+                    <span class="label">Estimate</span>
                     <input
                         v-model="editor.draft.estimate"
-                        class="card-editor__input"
+                        class="input"
                         type="number"
                         min="0"
                         step="1"
@@ -291,11 +294,11 @@ onUnmounted(() => {
                     />
                 </label>
 
-                <label class="card-editor__field card-editor__field--wide">
-                    <span>Tags</span>
+                <label class="flex flex-col gap-2">
+                    <span class="label">Tags</span>
                     <input
                         v-model="editor.draft.tags"
-                        class="card-editor__input"
+                        class="input"
                         type="text"
                         placeholder="auth, backend"
                         @blur="handleBlur"
@@ -303,11 +306,11 @@ onUnmounted(() => {
                 </label>
             </div>
 
-            <label class="card-editor__field card-editor__field--body">
-                <span>Body</span>
+            <label class="flex-1 min-h-0 flex flex-col gap-2">
+                <span class="label">Body</span>
                 <textarea
                     v-model="editor.draft.body"
-                    class="card-editor__textarea"
+                    class="flex-1 min-h-64 input resize-none leading-relaxed"
                     spellcheck="false"
                     @blur="handleBlur"
                 ></textarea>
@@ -315,147 +318,3 @@ onUnmounted(() => {
         </article>
     </div>
 </template>
-
-<style scoped>
-.card-editor {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    justify-content: center;
-    padding: 2rem;
-    background: rgba(5, 5, 5, 0.82);
-    backdrop-filter: blur(10px);
-}
-
-.card-editor__panel {
-    width: min(62rem, 100%);
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 1.25rem;
-    border: 1px solid var(--shade-3);
-    background: linear-gradient(180deg, var(--shade-2), var(--shade-1));
-}
-
-.card-editor__header,
-.card-editor__actions {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-}
-
-.card-editor__slug {
-    color: var(--shade-4);
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.card-editor__title {
-    margin: 0.3rem 0 0;
-    font-size: 1.3rem;
-}
-
-.card-editor__button,
-.card-editor__input,
-.card-editor__textarea {
-    border: 1px solid var(--shade-3);
-    background: var(--shade-2);
-    color: var(--shade-5);
-    font: inherit;
-}
-
-.card-editor__button {
-    padding: 0.7rem 0.9rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.card-editor__button--danger {
-    border-color: rgba(209, 75, 75, 0.35);
-    color: var(--danger-color);
-}
-
-.card-editor__status-dot {
-    width: 0.75rem;
-    height: 0.75rem;
-    margin-top: 0.85rem;
-    border-radius: 999px;
-    background: var(--danger-color);
-    box-shadow: 0 0 0 1px rgba(209, 75, 75, 0.35);
-}
-
-.card-editor__status-dot--saved {
-    background: var(--success-color);
-    box-shadow: 0 0 0 1px rgba(65, 182, 110, 0.35);
-}
-
-.card-editor__grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.9rem;
-}
-
-.card-editor__field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.45rem;
-}
-
-.card-editor__field span {
-    color: var(--shade-4);
-    font-size: 0.72rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.card-editor__field--wide {
-    grid-column: 1 / -1;
-}
-
-.card-editor__input,
-.card-editor__textarea {
-    width: 100%;
-    padding: 0.75rem 0.85rem;
-}
-
-.card-editor__field--body {
-    flex: 1;
-    min-height: 0;
-}
-
-.card-editor__textarea {
-    flex: 1;
-    min-height: 16rem;
-    resize: none;
-    line-height: 1.6;
-}
-
-.card-editor__error {
-    margin: 0;
-    padding: 0.75rem 0.9rem;
-    border: 1px solid rgba(209, 75, 75, 0.35);
-    color: var(--shade-5);
-    background: rgba(72, 19, 19, 0.22);
-}
-
-@media (max-width: 720px) {
-    .card-editor {
-        padding: 0;
-    }
-
-    .card-editor__panel {
-        width: 100%;
-    }
-
-    .card-editor__header {
-        flex-direction: column;
-    }
-
-    .card-editor__grid {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-</style>

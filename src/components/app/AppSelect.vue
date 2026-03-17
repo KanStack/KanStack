@@ -68,31 +68,29 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div ref="root" class="app-select">
+    <div ref="root" class="relative shrink-0 w-40">
         <button
-            class="app-select__trigger"
+            class="btn flex items-center justify-between gap-2 w-full"
             type="button"
             :aria-expanded="isOpen"
             :aria-label="ariaLabel"
             @click="toggleOpen"
         >
-            <span class="app-select__label">{{ selectedLabel }}</span>
-            <span class="app-select__caret" aria-hidden="true">+</span>
+            <span class="truncate normal-case">{{ selectedLabel }}</span>
+            <span class="text-text-muted text-sm leading-none shrink-0" aria-hidden="true">+</span>
         </button>
 
         <div
             v-if="isOpen"
-            class="app-select__menu"
+            class="absolute top-[calc(100%+0.25rem)] left-0 z-20 flex flex-col gap-0.5 min-w-full max-h-64 p-1 border border-border bg-surface-1 shadow-lg overflow-y-auto"
             role="listbox"
             :aria-label="ariaLabel"
         >
             <button
                 v-for="option in options"
                 :key="option.value"
-                class="app-select__option"
-                :class="{
-                    'app-select__option--selected': option.value === modelValue,
-                }"
+                class="btn w-full text-left normal-case"
+                :class="{ 'border-text bg-border': option.value === modelValue }"
                 type="button"
                 role="option"
                 :aria-selected="option.value === modelValue"
@@ -104,70 +102,4 @@ onUnmounted(() => {
     </div>
 </template>
 
-<style scoped>
-.app-select {
-    position: relative;
-    width: 9rem;
-    flex: 0 0 9rem;
-}
 
-.app-select__trigger,
-.app-select__option {
-    width: 100%;
-    border: 1px solid var(--shade-3);
-    background: var(--shade-2);
-    color: var(--shade-5);
-    font: inherit;
-    font-size: 0.72rem;
-}
-
-.app-select__trigger {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.75rem;
-    min-height: 2.1rem;
-    padding: 0.45rem 0.65rem;
-}
-
-.app-select__trigger:hover,
-.app-select__option:hover,
-.app-select__option--selected {
-    border-color: var(--shade-5);
-    background: var(--shade-3);
-}
-
-.app-select__label {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.app-select__caret {
-    color: var(--shade-4);
-    font-size: 0.8rem;
-    line-height: 1;
-}
-
-.app-select__menu {
-    position: absolute;
-    top: calc(100% + 0.25rem);
-    left: 0;
-    z-index: 20;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    min-width: 100%;
-    max-height: calc((2.1rem * 6) + (0.2rem * 5) + 0.5rem);
-    padding: 0.25rem;
-    border: 1px solid var(--shade-3);
-    background: rgba(15, 15, 15, 0.98);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
-    overflow-y: auto;
-}
-
-.app-select__option {
-    padding: 0.5rem 0.65rem;
-    text-align: left;
-}
-</style>
