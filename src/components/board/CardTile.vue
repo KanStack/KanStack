@@ -65,9 +65,13 @@ const dueLabel = computed(() => {
 
     const parsed = new Date(raw);
     if (Number.isNaN(parsed.getTime())) {
-        return `Due ${raw}`;
+        return { text: `Due ${raw}`, status: 'normal' as const };
     }
 
+    const now = new Date();
+    const diffMs = parsed.getTime() - now.getTime();
+    const diffDays = diffMs / (1000 * 60 * 60 * 24);
+    
     const dateLabel = new Intl.DateTimeFormat(undefined, {
         day: "numeric",
         month: "short",
@@ -77,7 +81,18 @@ const dueLabel = computed(() => {
         minute: "2-digit",
     }).format(parsed).toLowerCase();
 
-    return `Due ${dateLabel} ${timeLabel}`;
+    let status: 'overdue' | 'urgent' | 'soon' | 'normal';
+    if (diffMs < 0) {
+        status = 'overdue';
+    } else if (diffDays < 1) {
+        status = 'urgent';
+    } else if (diffDays < 3) {
+        status = 'soon';
+    } else {
+        status = 'normal';
+    }
+
+    return { text: `Due ${dateLabel} ${timeLabel}`, status };
 });
 
 const badges = computed(() => {
@@ -109,7 +124,11 @@ const badges = computed(() => {
     >
         <div v-if="item.isRolledUp || dueLabel" class="flex items-center justify-between flex-wrap gap-2.5 text-text-muted text-xs tracking-wider uppercase">
             <span v-if="item.isRolledUp" class="shrink-0 px-1.5 py-0.5 border border-border/60 text-text bg-surface-1">{{ item.sourceBoardTitle ?? item.sourceBoardSlug }}</span>
-            <span v-if="dueLabel" class="badge badge-warning">{{ dueLabel }}</span>
+            <span v-if="dueLabel" class="badge" :class="{
+                'badge-danger': dueLabel.status === 'overdue',
+                'badge-urgent': dueLabel.status === 'urgent',
+                'badge-warning': dueLabel.status === 'soon'
+            }">{{ dueLabel.text }}</span>
         </div>
         <div class="text-text text-body">{{ card?.title ?? item.slug }}</div>
         <div class="text-text-muted text-body">{{ preview }}</div>
