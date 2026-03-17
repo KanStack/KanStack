@@ -45,6 +45,7 @@ pub(crate) struct AppConfig {
     pub(crate) known_board_roots: Vec<String>,
     pub(crate) workspace_path: Option<String>,
     pub(crate) view: AppViewPreferences,
+    pub(crate) theme: AppTheme,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -93,6 +94,14 @@ pub(crate) enum AppViewDueStatus {
     DueSoon,
     HasDue,
     NoDue,
+}
+
+#[derive(Clone, Copy, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub(crate) enum AppTheme {
+    #[default]
+    Dark,
+    Light,
 }
 
 pub(crate) struct WorkspaceWatcher {

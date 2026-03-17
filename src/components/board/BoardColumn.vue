@@ -38,6 +38,7 @@ const emit = defineEmits<{
     openCard: [selection: { slug: string; sourceBoardSlug: string }];
     renameColumn: [payload: { name: string; slug: string }];
     selectColumn: [slug: string];
+    cardContextMenu: [event: MouseEvent, cardSlug: string, cardPath: string | null];
 }>();
 
 const columnNameDraft = shallowRef(props.column.name);
@@ -105,6 +106,11 @@ function handleCardPointerDown(item: BoardViewCardLink, event: PointerEvent) {
     }
 
     emit("pointerDown", item, event);
+}
+
+function handleCardContextMenu(event: MouseEvent, cardLink: BoardViewCardLink) {
+    const card = props.cardsBySlug[cardLink.slug];
+    emit("cardContextMenu", event, cardLink.slug, card?.path ?? null);
 }
 
 async function handleLabelClick(event: MouseEvent) {
@@ -236,9 +242,10 @@ onUnmounted(() => {
         <div class="flex-1 min-h-0 overflow-y-auto p-4">
             <div class="flex flex-col gap-4 min-h-full">
                 <section
-                    v-for="section in sections"
+                    v-for="(section, sectionIndex) in sections"
                     :key="`${column.slug}-${section.key}`"
                     class="flex flex-col gap-2"
+                    :class="{ 'flex-1': sectionIndex === sections.length - 1 }"
                 >
                     <div
                         v-if="section.name"
@@ -248,8 +255,8 @@ onUnmounted(() => {
                     </div>
 
                     <div
-                        class="flex flex-col flex-1 gap-3 py-1.5"
-                        :class="{ 'min-h-20': section.cards.length === 0 }"
+                        class="flex flex-col gap-3 py-1.5"
+                        :class="{ 'min-h-20 flex-1': section.cards.length === 0, 'flex-1': sectionIndex === sections.length - 1 }"
                         :data-column-name="column.name"
                         :data-column-slug="column.slug"
                         :data-drop-surface-id="section.key"
@@ -278,6 +285,7 @@ onUnmounted(() => {
                                     @pointer-up="emit('pointerUp', $event)"
                                     @activate="emit('activateCard', $event)"
                                     @open="emit('openCard', $event)"
+                                    @context-menu="handleCardContextMenu($event, cardLink)"
                                 />
                                 <div
                                     v-if="

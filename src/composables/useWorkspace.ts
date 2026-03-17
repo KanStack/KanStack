@@ -4,13 +4,17 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 import { open } from '@tauri-apps/plugin-dialog'
 
 import type { KanbanBoardDocument, KanbanCardDocument } from '@docs/schemas/kanban-parser-schema'
-import type { AppConfig, BoardViewPreferences } from '@/types/appConfig'
+import type { AppConfig, BoardViewPreferences, Theme } from '@/types/appConfig'
 import type { LoadedWorkspace, WorkspaceMutationPayload, WorkspaceSnapshot } from '@/types/workspace'
 import { createDefaultAppConfig, normalizeAppConfig, normalizeBoardViewPreferences } from '@/utils/appConfig'
 import { buildLoadedWorkspace, createWorkspaceSnapshotSignature } from '@/utils/workspaceSnapshot'
 
 const LEGACY_WORKSPACE_STORAGE_KEY = 'kanstack.workspacePath'
 const WORKSPACE_CHANGED_EVENT = 'workspace-changed'
+
+function applyTheme(theme: 'light' | 'dark') {
+  document.documentElement.setAttribute('data-theme', theme)
+}
 
 interface LoadWorkspaceOptions {
   preserveSelection?: boolean
@@ -138,6 +142,7 @@ export function useWorkspace() {
     const config = normalizeAppConfig(await invoke<AppConfig>('load_app_config'))
     appConfig.value = config
     workspacePath.value = config.workspacePath
+    applyTheme(config.theme)
     return config
   }
 
@@ -190,6 +195,17 @@ export function useWorkspace() {
     })
     queueAppConfigWrite()
   }
+
+  function setTheme(theme: Theme) {
+    appConfig.value = normalizeAppConfig({
+      ...appConfig.value,
+      theme,
+    })
+    applyTheme(theme)
+    queueAppConfigWrite()
+  }
+
+  const theme = computed(() => appConfig.value.theme)
 
   async function openWorkspace() {
     const selection = await open({
@@ -540,6 +556,7 @@ export function useWorkspace() {
     isLoading,
     errorMessage,
     viewPreferences,
+    theme,
     openWorkspace,
     attachExistingBoard,
     closeWorkspace,
@@ -551,6 +568,7 @@ export function useWorkspace() {
     closeCard,
     applyWorkspaceMutation,
     updateViewPreferences,
+    setTheme,
   }
 }
 

@@ -16,8 +16,11 @@ export interface BoardViewPreferences {
   filters: BoardViewFilters
 }
 
+export type Theme = 'light' | 'dark'
+
 export interface AppConfig {
   knownBoardRoots: string[]
   workspacePath: string | null
   view: BoardViewPreferences
+  theme: Theme
 }

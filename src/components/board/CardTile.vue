@@ -16,6 +16,7 @@ const emit = defineEmits<{
     pointerUp: [event: PointerEvent];
     activate: [payload: { metaKey: boolean; shiftKey: boolean; selection: { slug: string; sourceBoardSlug: string } }];
     open: [selection: { slug: string; sourceBoardSlug: string }];
+    contextMenu: [event: MouseEvent];
 }>();
 
 function handlePointerDown(event: PointerEvent) {
@@ -38,6 +39,11 @@ function handleClick(event: MouseEvent) {
 function handleDoubleClick(event: MouseEvent) {
     (event.currentTarget as HTMLButtonElement | null)?.blur();
     emit("open", buildSelection());
+}
+
+function handleContextMenu(event: MouseEvent) {
+    event.preventDefault();
+    emit("contextMenu", event);
 }
 
 const preview = computed(() => {
@@ -121,6 +127,7 @@ const badges = computed(() => {
         @pointerdown="handlePointerDown"
         @pointermove="emit('pointerMove', $event)"
         @pointerup="emit('pointerUp', $event)"
+        @contextmenu="handleContextMenu"
     >
         <div v-if="item.isRolledUp || dueLabel" class="flex items-center justify-between flex-wrap gap-2.5 text-text-muted text-xs tracking-wider uppercase">
             <span v-if="item.isRolledUp" class="shrink-0 px-1.5 py-0.5 border border-border/60 text-text bg-surface-1">{{ item.sourceBoardTitle ?? item.sourceBoardSlug }}</span>

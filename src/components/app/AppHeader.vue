@@ -18,6 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   selectBoard: [slug: string]
+  boardContextMenu: [event: MouseEvent, slug: string]
 }>()
 
 const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
@@ -41,6 +42,11 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
     ...tail,
   ]
 })
+
+function handleContextMenu(event: MouseEvent, slug: string) {
+  event.preventDefault()
+  emit('boardContextMenu', event, slug)
+}
 </script>
 
 <template>
@@ -60,10 +66,15 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
             class="max-w-40 px-2 py-1 border border-border bg-surface-1 text-text truncate text-sm leading-tight hover:border-text hover:bg-surface"
             type="button"
             @click="emit('selectBoard', item.board.slug)"
+            @contextmenu="handleContextMenu($event, item.board.slug)"
           >
             {{ item.board.title }}
           </button>
-          <span v-else-if="item.kind === 'board'" class="max-w-40 px-2 py-1 border border-border bg-surface text-text truncate text-sm leading-tight">
+          <span
+            v-else-if="item.kind === 'board'"
+            class="max-w-40 px-2 py-1 border border-border bg-surface text-text truncate text-sm leading-tight"
+            @contextmenu="handleContextMenu($event, item.board.slug)"
+          >
             {{ item.board.title }}
           </span>
           <span v-else class="text-text-muted text-xs leading-none">...</span>
@@ -76,19 +87,18 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
 
       <div v-if="childBoards.length" class="flex items-center min-w-0">
         <div class="flex flex-nowrap gap-1.5 min-w-0 overflow-hidden max-[900px]:justify-start">
-<button
-              v-for="board in childBoards"
-              :key="board.slug"
-              class="max-w-40 px-2 py-1 border border-border bg-surface-1 text-text truncate text-sm hover:border-text hover:bg-surface"
-              type="button"
-              @click="emit('selectBoard', board.slug)"
-            >
-              {{ board.title }}
-            </button>
+          <button
+            v-for="board in childBoards"
+            :key="board.slug"
+            class="max-w-40 px-2 py-1 border border-border bg-surface-1 text-text truncate text-sm hover:border-text hover:bg-surface"
+            type="button"
+            @click="emit('selectBoard', board.slug)"
+            @contextmenu="handleContextMenu($event, board.slug)"
+          >
+            {{ board.title }}
+          </button>
         </div>
       </div>
     </div>
   </header>
 </template>
-
-
