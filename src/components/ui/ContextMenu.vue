@@ -1,14 +1,20 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue";
 
+import ContextMenuItem from "./ContextMenuItem.vue";
+
+import type { ContextMenuItem as MenuItem } from "@/composables/useContextMenuActions";
+
 const props = defineProps<{
     x: number;
     y: number;
     visible: boolean;
+    items: MenuItem[];
 }>();
 
 const emit = defineEmits<{
     close: [];
+    action: [action: (() => void | Promise<void>) | undefined];
 }>();
 
 const menuRef = ref<HTMLElement | null>(null);
@@ -59,6 +65,13 @@ function handleEscape(event: KeyboardEvent) {
     }
 }
 
+function handleAction(item: MenuItem) {
+    if (item.action) {
+        emit("action", item.action);
+    }
+    emit("close");
+}
+
 onMounted(() => {
     document.addEventListener("click", handleClickOutside);
     document.addEventListener("keydown", handleEscape);
@@ -75,10 +88,28 @@ onUnmounted(() => {
         <div
             v-if="visible"
             ref="menuRef"
-            class="context-menu fixed z-50 min-w-48 border border-border/60 bg-surface shadow-lg"
+            class="context-menu fixed z-50 w-56 border border-border/60 bg-surface shadow-lg"
             :style="{ left: `${adjustedPosition.x}px`, top: `${adjustedPosition.y}px` }"
         >
-            <slot />
+            <template v-for="(item, index) in items" :key="index">
+                <div
+                    v-if="item.divider"
+                    class="border-t border-border/60 my-1"
+                ></div>
+                <div
+                    v-else-if="!item.action"
+                    class="px-3 py-1.5 text-sm text-text-muted"
+                >
+                    {{ item.label }}
+                </div>
+                <ContextMenuItem
+                    v-else
+                    :shortcut="item.shortcut"
+                    @click="handleAction(item)"
+                >
+                    {{ item.label }}
+                </ContextMenuItem>
+            </template>
         </div>
     </Teleport>
 </template>

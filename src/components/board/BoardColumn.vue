@@ -39,6 +39,7 @@ const emit = defineEmits<{
     renameColumn: [payload: { name: string; slug: string }];
     selectColumn: [slug: string];
     cardContextMenu: [event: MouseEvent, cardSlug: string, cardPath: string | null];
+    columnContextMenu: [event: MouseEvent, columnSlug: string, cardCount: number];
 }>();
 
 const columnNameDraft = shallowRef(props.column.name);
@@ -111,6 +112,10 @@ function handleCardPointerDown(item: BoardViewCardLink, event: PointerEvent) {
 function handleCardContextMenu(event: MouseEvent, cardLink: BoardViewCardLink) {
     const card = props.cardsBySlug[cardLink.slug];
     emit("cardContextMenu", event, cardLink.slug, card?.path ?? null);
+}
+
+function handleColumnContextMenu(event: MouseEvent) {
+    emit("columnContextMenu", event, props.column.slug, props.column.cards.length);
 }
 
 async function handleLabelClick(event: MouseEvent) {
@@ -210,6 +215,7 @@ onUnmounted(() => {
         <header
             class="p-4 border-b border-border/60"
             @click="handleHeaderClick"
+            @contextmenu="handleColumnContextMenu"
             @pointerdown="handleHeaderPointerDown"
             @pointermove="emit('headerPointerMove', $event)"
             @pointerup="emit('headerPointerUp', $event)"
@@ -239,7 +245,7 @@ onUnmounted(() => {
             </div>
         </header>
 
-        <div class="flex-1 min-h-0 overflow-y-auto p-4">
+        <div class="flex-1 min-h-0 overflow-y-auto p-4" @contextmenu="handleColumnContextMenu">
             <div class="flex flex-col gap-4 min-h-full">
                 <section
                     v-for="(section, sectionIndex) in sections"

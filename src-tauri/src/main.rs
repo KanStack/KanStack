@@ -83,6 +83,10 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
     let new_board = MenuItemBuilder::with_id("new-board", "New Board")
         .accelerator("CmdOrCtrl+Shift+N")
         .build(app)?;
+    let rename_board =
+        MenuItemBuilder::with_id("rename-selected-board", "Rename Board")
+            .accelerator("CmdOrCtrl+R")
+            .build(app)?;
     let attach_existing_board =
         MenuItemBuilder::with_id("attach-existing-board", "Attach Existing Board").build(app)?;
 
@@ -95,15 +99,25 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
     let toggle_theme = MenuItemBuilder::with_id("toggle-theme", "Toggle Theme").build(app)?;
     let delete_current_board =
         MenuItemBuilder::with_id("delete-current-board", "Delete Current Board").build(app)?;
-    let new_column = MenuItemBuilder::with_id("new-column", "New Column").build(app)?;
+    let new_column = MenuItemBuilder::with_id("new-column", "New Column")
+        .accelerator("CmdOrCtrl+C")
+        .build(app)?;
     let rename_selected_column =
-        MenuItemBuilder::with_id("rename-selected-column", "Rename Column").build(app)?;
+        MenuItemBuilder::with_id("rename-selected-column", "Rename Column")
+            .accelerator("CmdOrCtrl+R")
+            .build(app)?;
     let delete_selected_column =
-        MenuItemBuilder::with_id("delete-selected-column", "Delete Column").build(app)?;
+        MenuItemBuilder::with_id("delete-selected-column", "Delete Column")
+            .accelerator("Delete")
+            .build(app)?;
 
     let new_card = MenuItemBuilder::with_id("new-card", "New Card")
         .accelerator("CmdOrCtrl+N")
         .build(app)?;
+    let open_selected_card =
+        MenuItemBuilder::with_id("open-selected-card", "Open Selected")
+            .accelerator("Enter")
+            .build(app)?;
     let archive_selected_cards =
         MenuItemBuilder::with_id("archive-selected-cards", "Archive Selected")
             .accelerator("Delete")
@@ -128,6 +142,7 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
 
     let board_menu = SubmenuBuilder::new(app, "Board")
         .item(&new_board)
+        .item(&rename_board)
         .item(&attach_existing_board)
         .separator()
         .item(&toggle_archive_column)
@@ -146,6 +161,7 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
     let card_menu = SubmenuBuilder::new(app, "Card")
         .item(&new_card)
         .separator()
+        .item(&open_selected_card)
         .item(&archive_selected_cards)
         .item(&delete_selected_cards)
         .build()?;
@@ -170,6 +186,7 @@ fn map_menu_action(menu_id: &str) -> Option<&'static str> {
         "redo-action" => Some("redo-action"),
         "new-card" => Some("new-card"),
         "new-board" => Some("new-board"),
+        "rename-selected-board" => Some("rename-selected-board"),
         "attach-existing-board" => Some("attach-existing-board"),
         "new-column" => Some("new-column"),
         "rename-selected-column" => Some("rename-selected-column"),
@@ -178,6 +195,7 @@ fn map_menu_action(menu_id: &str) -> Option<&'static str> {
         "toggle-sub-boards" => Some("toggle-sub-boards"),
         "toggle-theme" => Some("toggle-theme"),
         "delete-current-board" => Some("delete-current-board"),
+        "open-selected-card" => Some("open-selected-card"),
         "archive-selected-cards" => Some("archive-selected-cards"),
         "delete-selected-cards" => Some("delete-selected-cards"),
         _ => None,

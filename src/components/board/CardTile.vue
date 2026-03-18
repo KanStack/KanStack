@@ -43,6 +43,7 @@ function handleDoubleClick(event: MouseEvent) {
 
 function handleContextMenu(event: MouseEvent) {
     event.preventDefault();
+    event.stopPropagation();
     emit("contextMenu", event);
 }
 
