@@ -23,6 +23,8 @@ interface CardContext {
   onArchive: () => Promise<void>
   onDelete: () => Promise<void>
   onClose: () => void
+  onCopy?: () => Promise<void>
+  onCut?: () => Promise<void>
 }
 
 interface BoardContext {
@@ -52,6 +54,7 @@ interface ColumnContext {
   onArchiveAll: () => Promise<void>
   onDeleteColumn: () => Promise<void>
   onDeleteAllArchived: () => Promise<void>
+  onPaste?: () => Promise<void>
 }
 
 type Context = CardContext | BoardContext | ColumnContext | null
@@ -150,6 +153,24 @@ export function useContextMenuActions() {
         shortcut: '⇧⌫',
       })
 
+      items.push({ label: '', divider: true })
+
+      if (ctx.onCopy) {
+        items.push({
+          label: ctx.selections.length === 1 ? 'Copy' : `Copy ${ctx.selections.length}`,
+          action: ctx.onCopy,
+          shortcut: '⌘C',
+        })
+      }
+
+      if (ctx.onCut) {
+        items.push({
+          label: ctx.selections.length === 1 ? 'Cut' : `Cut ${ctx.selections.length}`,
+          action: ctx.onCut,
+          shortcut: '⌘X',
+        })
+      }
+
       if (cardPath) {
         items.push({ label: '', divider: true })
         items.push({
@@ -222,16 +243,23 @@ export function useContextMenuActions() {
           })
         }
       } else {
-items.push({
-        label: 'New Card',
-        action: ctx.onNewCard,
-        shortcut: '⌘N',
-      })
-      items.push({
-        label: 'Rename',
-        action: ctx.onRename,
-        shortcut: '⌘R',
-      })
+        items.push({
+          label: 'New Card',
+          action: ctx.onNewCard,
+          shortcut: '⌘N',
+        })
+        if (ctx.onPaste) {
+          items.push({
+            label: 'Paste',
+            action: ctx.onPaste,
+            shortcut: '⌘V',
+          })
+        }
+        items.push({
+          label: 'Rename',
+          action: ctx.onRename,
+          shortcut: '⌘R',
+        })
         if (ctx.cardCount > 0) {
           items.push({ label: '', divider: true })
           items.push({

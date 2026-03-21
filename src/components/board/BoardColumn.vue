@@ -115,7 +115,17 @@ function handleCardContextMenu(event: MouseEvent, cardLink: BoardViewCardLink) {
 }
 
 function handleColumnContextMenu(event: MouseEvent) {
+    emit("selectColumn", props.column.slug);
     emit("columnContextMenu", event, props.column.slug, props.column.cards.length);
+}
+
+function handleBodyClick(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest("[data-card-key]")) {
+        return;
+    }
+
+    emit("selectColumn", props.column.slug);
 }
 
 async function handleLabelClick(event: MouseEvent) {
@@ -245,7 +255,11 @@ onUnmounted(() => {
             </div>
         </header>
 
-        <div class="flex-1 min-h-0 overflow-y-auto p-4" @contextmenu="handleColumnContextMenu">
+        <div
+            class="flex-1 min-h-0 overflow-y-auto p-4"
+            @click="handleBodyClick"
+            @contextmenu="handleColumnContextMenu"
+        >
             <div class="flex flex-col gap-4 min-h-full">
                 <section
                     v-for="(section, sectionIndex) in sections"
@@ -319,5 +333,3 @@ onUnmounted(() => {
         </div>
     </section>
 </template>
-
-

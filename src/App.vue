@@ -8,8 +8,10 @@ import AppMessageBanner from "@/components/app/AppMessageBanner.vue";
 import BoardCanvas from "@/components/board/BoardCanvas.vue";
 import CardEditorModal from "@/components/card/CardEditorModal.vue";
 import ContextMenu from "@/components/ui/ContextMenu.vue";
+import type { KanbanCardDocument } from "@docs/schemas/kanban-parser-schema";
 import { useBoardActions } from "@/composables/useBoardActions";
 import { useBoardSelection } from "@/composables/useBoardSelection";
+import { useClipboard } from "@/composables/useClipboard";
 import { useContextMenuActions } from "@/composables/useContextMenuActions";
 import {
     useActionHistory,
@@ -17,6 +19,8 @@ import {
 } from "@/history/useActionHistory";
 import { useWorkspace } from "@/composables/useWorkspace";
 import { isCardReorderEnabled } from "@/utils/appConfig";
+import { cardPathFromId } from "@/utils/kanbanPath";
+import { serializeCardMarkdown } from "@/utils/serializeCard";
 import {
     ARCHIVE_COLUMN_NAME,
     ARCHIVE_COLUMN_SLUG,
@@ -63,6 +67,7 @@ const appBoardActions = useBoardActions({
     getCardsBySlug: () => workspace.value?.cardsBySlug ?? {},
 });
 const boardSelection = useBoardSelection();
+const clipboard = useClipboard();
 const appMessage = shallowRef<{ kind: "error"; text: string } | null>(null);
 const keyboardMoveMode = shallowRef<"card" | "column" | null>(null);
 const selectedColumnState = shallowRef<string | null>(null);
@@ -580,6 +585,8 @@ function handleCardContextMenu(event: MouseEvent, cardSlug: string, cardPath: st
         onArchive: archiveSelectedCards,
         onDelete: deleteSelectedCards,
         onClose: requestCloseEditor,
+        onCopy: copySelectedCards,
+        onCut: cutSelectedCards,
     });
 }
 
@@ -756,6 +763,11 @@ function handleColumnContextMenu(event: MouseEvent, columnSlug: string, cardCoun
             }
             boardSelection.selectedKeys.value = selections.map((s) => `${s.sourceBoardSlug}:${s.slug}`);
             await deleteSelectedCards();
+        },
+        onPaste: async () => {
+            boardSelection.clearSelection();
+            selectedColumnState.value = columnSlug;
+            await pasteCards(columnSlug);
         },
     });
 }
@@ -985,6 +997,105 @@ async function deleteSelectedCards() {
 async function deleteSingleCard(selection: WorkspaceCardSelection) {
     boardSelection.selectSingle(selection);
     await deleteSelectedCards();
+}
+
+async function copySelectedCards() {
+    const selectedCards = boardSelection.selectedCards.value;
+    if (!selectedCards.length || !workspace.value) {
+        return;
+    }
+
+    const cards = selectedCards
+        .map((selection) => workspace.value!.cardsBySlug[selection.slug])
+        .filter((card): card is KanbanCardDocument => Boolean(card));
+
+    if (!cards.length) {
+        return;
+    }
+
+    const success = await clipboard.copyCards(cards);
+    if (!success) {
+        return;
+    }
+}
+
+async function cutSelectedCards() {
+    const selectedCards = boardSelection.selectedCards.value;
+    if (!selectedCards.length || !workspace.value) {
+        return;
+    }
+
+    const cards = selectedCards
+        .map((selection) => workspace.value!.cardsBySlug[selection.slug])
+        .filter((card): card is KanbanCardDocument => Boolean(card));
+
+    if (!cards.length) {
+        return;
+    }
+
+    const success = await clipboard.copyCards(cards);
+    if (success) {
+        await archiveSelectedCards();
+    }
+}
+
+async function pasteCards(targetColumnSlug?: string) {
+    const clipboardCards = await clipboard.getClipboardCards();
+    if (!clipboardCards.length || !currentBoard.value || !workspace.value?.rootPath) {
+        return;
+    }
+
+    const columnSlug = targetColumnSlug ?? selectedColumnState.value ?? currentBoard.value.columns.find((c) => !isArchiveColumnSlug(c.slug))?.slug;
+    if (!columnSlug) {
+        return;
+    }
+
+    const targetColumn = currentBoard.value.columns.find((c) => c.slug === columnSlug);
+    if (!targetColumn) {
+        return;
+    }
+
+    for (const cardData of clipboardCards) {
+        const after = await executeTrackedAction("Paste Card", async () => {
+            const result = await appBoardActions.createCard(currentBoard.value!, columnSlug);
+            if (!result) {
+                return null;
+            }
+
+            const cardContent = serializeCardMarkdown({
+                title: cardData.title,
+                metadata: {
+                    title: cardData.title,
+                    ...cardData.metadata,
+                },
+                body: cardData.body,
+            });
+
+            await invoke('save_card_file', {
+                root: workspace.value!.rootPath,
+                path: cardPathFromId(result.slug),
+                content: cardContent,
+            });
+            const refreshedSnapshot = await invoke<WorkspaceSnapshot>('load_workspace', {
+                path: workspace.value!.rootPath,
+            });
+
+            return {
+                currentBoardSlug: currentBoard.value!.slug,
+                selectedCard: null,
+                selectedColumnSlug: columnSlug,
+                snapshot: refreshedSnapshot,
+            };
+        });
+
+        if (after) {
+            applyWorkspaceMutation({
+                snapshot: after.snapshot,
+                currentBoardSlug: after.currentBoardSlug,
+                selectedCard: after.selectedCard,
+            });
+        }
+    }
 }
 
 async function deleteCurrentBoard() {
@@ -1333,6 +1444,24 @@ function handleGlobalKeydown(event: KeyboardEvent) {
         return;
     }
 
+    if (event.key.toLowerCase() === "c" && boardSelection.selectedCount.value > 0) {
+        event.preventDefault();
+        void copySelectedCards();
+        return;
+    }
+
+    if (event.key.toLowerCase() === "x" && boardSelection.selectedCount.value > 0) {
+        event.preventDefault();
+        void cutSelectedCards();
+        return;
+    }
+
+    if (event.key.toLowerCase() === "v") {
+        event.preventDefault();
+        void pasteCards();
+        return;
+    }
+
     if (event.key.toLowerCase() === "c") {
         event.preventDefault();
         void createColumn();
@@ -1348,6 +1477,7 @@ function handleGlobalKeydown(event: KeyboardEvent) {
     if (event.key.toLowerCase() === "a" && event.shiftKey) {
         event.preventDefault();
         void toggleArchiveColumn();
+        return;
     }
 }
 
@@ -1883,5 +2013,3 @@ watch(
         />
     </div>
 </template>
-
-

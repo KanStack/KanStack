@@ -100,7 +100,7 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
     let delete_current_board =
         MenuItemBuilder::with_id("delete-current-board", "Delete Current Board").build(app)?;
     let new_column = MenuItemBuilder::with_id("new-column", "New Column")
-        .accelerator("CmdOrCtrl+C")
+        .accelerator("CmdOrCtrl+Shift+C")
         .build(app)?;
     let rename_selected_column =
         MenuItemBuilder::with_id("rename-selected-column", "Rename Column")
