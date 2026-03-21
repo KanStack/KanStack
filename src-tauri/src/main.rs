@@ -20,6 +20,8 @@ fn main() {
     tauri::Builder::default()
         .manage(WorkspaceWatcherState::default())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             app.set_menu(build_menu(app)?)?;
             Ok(())
@@ -66,6 +68,9 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
                 .build(),
         ),
     )?;
+    #[cfg(target_os = "macos")]
+    let check_for_updates =
+        MenuItemBuilder::with_id("check-for-updates", "Check for Updates...").build(app)?;
     let open_folder = MenuItemBuilder::with_id("open-folder", "Open Folder")
         .accelerator("CmdOrCtrl+O")
         .build(app)?;
@@ -130,6 +135,8 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
     #[cfg(target_os = "macos")]
     let app_menu = SubmenuBuilder::new(app, package_info.name.as_str())
         .item(&about_kanstack)
+        .separator()
+        .item(&check_for_updates)
         .build()?;
     let file_menu = SubmenuBuilder::new(app, "File")
         .item(&open_folder)
@@ -180,6 +187,8 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
 
 fn map_menu_action(menu_id: &str) -> Option<&'static str> {
     match menu_id {
+        #[cfg(target_os = "macos")]
+        "check-for-updates" => Some("check-for-updates"),
         "open-folder" => Some("open-folder"),
         "close-folder" => Some("close-folder"),
         "undo-action" => Some("undo-action"),

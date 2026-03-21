@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import appLogoUrl from '../../../src-tauri/icons/128x128.png'
+import appLogoUrl from '../../../app-icon.png'
 
 interface BoardNavOption {
   slug: string
