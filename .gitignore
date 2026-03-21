@@ -33,9 +33,6 @@ yarn-error.log*
 # Tauri
 src-tauri/target/
 src-tauri/Cargo.lock
-src-tauri/icons/*.png
-src-tauri/icons/*.icns
-src-tauri/icons/*.ico
 
 # Testing
 coverage/

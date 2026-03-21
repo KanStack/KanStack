@@ -1,3 +1,6 @@
+/// <reference types="vite/client" />
+/// <reference types="vitest" />
+
 import { describe, expect, it } from 'vitest'
 
 import tauriConfig from '../../src-tauri/tauri.conf.json'
@@ -21,6 +24,7 @@ describe('tauri config', () => {
   it('declares shipped icon assets for packaged builds', () => {
     const config = tauriConfig as TauriConfig
     const icons = config.bundle?.icon ?? []
+    const shippedIcons = Object.keys(import.meta.glob('../../src-tauri/icons/*'))
 
     expect(config.bundle?.active).toBe(true)
     expect(icons).toEqual(
@@ -32,6 +36,10 @@ describe('tauri config', () => {
         'icons/icon.ico',
       ]),
     )
+
+    for (const icon of icons) {
+      expect(shippedIcons).toContain(`../../src-tauri/${icon}`)
+    }
   })
 
   it('declares updater endpoints and signing metadata', () => {
