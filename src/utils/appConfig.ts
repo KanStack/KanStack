@@ -1,4 +1,4 @@
-import type { AppConfig, BoardViewFilters, BoardViewPreferences } from '@/types/appConfig'
+import type { AppConfig, BoardViewFilters, BoardViewPreferences, Theme } from '@/types/appConfig'
 
 export function createDefaultBoardViewFilters(): BoardViewFilters {
   return {
@@ -18,11 +18,14 @@ export function createDefaultBoardViewPreferences(): BoardViewPreferences {
   }
 }
 
+const VALID_THEMES: Theme[] = ['light', 'dark']
+
 export function createDefaultAppConfig(): AppConfig {
   return {
     knownBoardRoots: [],
     workspacePath: null,
     view: createDefaultBoardViewPreferences(),
+    theme: typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
   }
 }
 
@@ -43,6 +46,16 @@ export function normalizeBoardViewPreferences(value: Partial<BoardViewPreference
   }
 }
 
+function normalizeTheme(theme: unknown): Theme {
+  if (typeof theme === 'string' && VALID_THEMES.includes(theme as Theme)) {
+    return theme as Theme
+  }
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark'
+  }
+  return 'light'
+}
+
 export function normalizeAppConfig(value: Partial<AppConfig> | null | undefined): AppConfig {
   return {
     knownBoardRoots: Array.isArray(value?.knownBoardRoots)
@@ -52,6 +65,7 @@ export function normalizeAppConfig(value: Partial<AppConfig> | null | undefined)
       ? value.workspacePath
       : null,
     view: normalizeBoardViewPreferences(value?.view),
+    theme: normalizeTheme(value?.theme),
   }
 }
 

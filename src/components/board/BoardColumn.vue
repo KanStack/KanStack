@@ -38,6 +38,7 @@ const emit = defineEmits<{
     openCard: [selection: { slug: string; sourceBoardSlug: string }];
     renameColumn: [payload: { name: string; slug: string }];
     selectColumn: [slug: string];
+    cardContextMenu: [event: MouseEvent, cardSlug: string, cardPath: string | null];
 }>();
 
 const columnNameDraft = shallowRef(props.column.name);
@@ -105,6 +106,11 @@ function handleCardPointerDown(item: BoardViewCardLink, event: PointerEvent) {
     }
 
     emit("pointerDown", item, event);
+}
+
+function handleCardContextMenu(event: MouseEvent, cardLink: BoardViewCardLink) {
+    const card = props.cardsBySlug[cardLink.slug];
+    emit("cardContextMenu", event, cardLink.slug, card?.path ?? null);
 }
 
 async function handleLabelClick(event: MouseEvent) {
@@ -200,9 +206,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <section class="board-column" :class="{ 'board-column--selected': selected }">
+    <section class="w-[min(20rem,84vw)] min-w-[min(20rem,84vw)] min-h-0 flex flex-col border border-border/60 bg-surface/90" :class="{ 'border-text': selected }">
         <header
-            class="board-column__header"
+            class="p-4 border-b border-border/60"
             @click="handleHeaderClick"
             @pointerdown="handleHeaderPointerDown"
             @pointermove="emit('headerPointerMove', $event)"
@@ -211,7 +217,7 @@ onUnmounted(() => {
             <div>
                 <button
                     v-if="!isEditingTitle"
-                    class="board-column__label"
+                    class="btn-plain column-header"
                     data-column-title-control="true"
                     type="button"
                     @click.stop="handleLabelClick"
@@ -222,37 +228,35 @@ onUnmounted(() => {
                     v-else
                     ref="columnNameInput"
                     v-model="columnNameDraft"
-                    class="board-column__label-input"
+                    class="w-full btn-plain border-b border-text column-header"
                     data-column-title-control="true"
                     type="text"
                     :disabled="renamingDisabled"
                     @blur="commitRename"
                     @keydown="handleTitleKeydown"
                 />
-                <div class="board-column__count">{{ cardCount }} cards</div>
+                <div class="mt-1 text-text-muted text-xs">{{ cardCount }} cards</div>
             </div>
         </header>
 
-        <div class="board-column__body">
-            <div class="board-column__sections">
+        <div class="flex-1 min-h-0 overflow-y-auto p-4">
+            <div class="flex flex-col gap-4 min-h-full">
                 <section
-                    v-for="section in sections"
+                    v-for="(section, sectionIndex) in sections"
                     :key="`${column.slug}-${section.key}`"
-                    class="board-column__section"
+                    class="flex flex-col gap-2"
+                    :class="{ 'flex-1': sectionIndex === sections.length - 1 }"
                 >
                     <div
                         v-if="section.name"
-                        class="board-column__section-label"
+                        class="label"
                     >
                         {{ section.name }}
                     </div>
 
                     <div
-                        class="board-column__drop-surface"
-                        :class="{
-                            'board-column__drop-surface--empty':
-                                section.cards.length === 0,
-                        }"
+                        class="flex flex-col gap-3 py-1.5"
+                        :class="{ 'min-h-20 flex-1': section.cards.length === 0, 'flex-1': sectionIndex === sections.length - 1 }"
                         :data-column-name="column.name"
                         :data-column-slug="column.slug"
                         :data-drop-surface-id="section.key"
@@ -262,14 +266,14 @@ onUnmounted(() => {
                     >
                         <div
                             v-if="isInsertionVisible(section, 0)"
-                            class="board-column__insertion-line"
+                            class="h-3.5 min-h-3.5 border border-dashed border-text bg-surface"
                         ></div>
 
                         <template v-if="section.cards.length > 0">
                             <div
                                 v-for="(cardLink, cardIndex) in section.cards"
                                 :key="`${column.slug}-${section.key}-${cardLink.slug}-${cardLink.sourceBoardSlug}-${cardIndex}`"
-                                class="board-column__card-slot"
+                                class="flex flex-col gap-3"
                                 data-card-slot="true"
                             >
                                 <CardTile
@@ -281,6 +285,7 @@ onUnmounted(() => {
                                     @pointer-up="emit('pointerUp', $event)"
                                     @activate="emit('activateCard', $event)"
                                     @open="emit('openCard', $event)"
+                                    @context-menu="handleCardContextMenu($event, cardLink)"
                                 />
                                 <div
                                     v-if="
@@ -289,7 +294,7 @@ onUnmounted(() => {
                                             cardIndex + 1,
                                         )
                                     "
-                                    class="board-column__insertion-line"
+                                    class="h-3.5 min-h-3.5 border border-dashed border-text bg-surface"
                                 ></div>
                             </div>
                         </template>
@@ -298,7 +303,7 @@ onUnmounted(() => {
                             v-else-if="
                                 !section.name && !isInsertionVisible(section, 0)
                             "
-                            class="board-column__empty"
+                            class="text-text-muted text-sm border border-dashed border-border/60 p-3.5"
                         >
                             <span>No cards yet.</span>
                         </div>
@@ -309,119 +314,4 @@ onUnmounted(() => {
     </section>
 </template>
 
-<style scoped>
-.board-column {
-    width: min(20rem, 84vw);
-    min-width: min(20rem, 84vw);
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--shade-3);
-    background: rgba(20, 20, 20, 0.9);
-}
 
-.board-column--selected {
-    border-color: var(--shade-5);
-}
-
-.board-column__header {
-    padding: 1rem;
-    border-bottom: 1px solid var(--shade-3);
-}
-
-.board-column__label {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: 0.88rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    cursor: pointer;
-}
-
-.board-column__label-input {
-    width: 100%;
-    padding: 0;
-    border: 0;
-    border-bottom: 1px solid var(--shade-5);
-    background: transparent;
-    color: inherit;
-    font: inherit;
-    font-size: 0.88rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.board-column__count {
-    margin-top: 0.2rem;
-    color: var(--shade-4);
-    font-size: 0.72rem;
-}
-
-.board-column__body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 1rem;
-}
-
-.board-column__sections {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    min-height: 100%;
-}
-
-.board-column__section {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-}
-
-.board-column__section:last-child {
-    flex: 1;
-    min-height: 0;
-}
-
-.board-column__section-label {
-    color: var(--shade-4);
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.board-column__drop-surface {
-    display: flex;
-    flex-direction: column;
-    flex: 1;
-    gap: 0.75rem;
-    min-height: 1.25rem;
-    padding: 0.35rem 0;
-}
-
-.board-column__drop-surface--empty {
-    min-height: 5rem;
-}
-
-.board-column__card-slot {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-}
-
-.board-column__insertion-line {
-    height: 0.8rem;
-    min-height: 0.8rem;
-    border: 1px dashed var(--shade-5);
-    background: var(--shade-2);
-}
-
-.board-column__empty {
-    color: var(--shade-4);
-    font-size: 0.78rem;
-    border: 1px dashed var(--shade-3);
-    padding: 0.9rem;
-}
-</style>

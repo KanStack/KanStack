@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import appLogoUrl from '../../../src-tauri/icons/128x128.png'
+import appLogoUrl from '../../../app-icon.png'
 
 interface BoardNavOption {
   slug: string
@@ -18,6 +18,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   selectBoard: [slug: string]
+  boardContextMenu: [event: MouseEvent, slug: string]
 }>()
 
 const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
@@ -41,47 +42,58 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
     ...tail,
   ]
 })
+
+function handleContextMenu(event: MouseEvent, slug: string) {
+  event.preventDefault()
+  emit('boardContextMenu', event, slug)
+}
 </script>
 
 <template>
-  <header class="app-header">
-    <div class="app-header__brand">
-      <img class="app-header__logo" :src="appLogoUrl" alt="KanStack logo" />
-      <div class="app-header__brand-copy">
-        <div class="app-header__title">KanStack</div>
+  <header class="flex items-center justify-between gap-4 px-5 py-3 border-b border-border/60 bg-surface/90 backdrop-blur-xl max-[900px]:flex-col max-[900px]:items-stretch">
+    <div class="flex items-center gap-3 shrink-0 min-w-0">
+      <img class="w-10 h-10 object-contain shrink-0" :src="appLogoUrl" alt="KanStack logo" />
+      <div class="min-w-0">
+        <div class="text-lg font-bold tracking-widest leading-none">KanStack</div>
       </div>
     </div>
 
-    <div class="app-header__nav" v-if="boardLineage.length">
-      <nav class="app-header__breadcrumb" aria-label="Board navigation">
+    <div class="min-w-0 flex items-center justify-end gap-3 overflow-hidden max-[900px]:justify-start" v-if="boardLineage.length">
+      <nav class="flex flex-nowrap items-center gap-1 min-w-0 overflow-hidden max-[900px]:justify-start" aria-label="Board navigation">
         <template v-for="(item, index) in breadcrumbItems" :key="item.kind === 'board' ? item.board.slug : `ellipsis-${index}`">
           <button
             v-if="item.kind === 'board' && !item.current"
-            class="app-header__crumb"
+            class="max-w-40 px-2 py-1 border border-border bg-surface-1 text-text truncate text-sm leading-tight hover:border-text hover:bg-surface"
             type="button"
             @click="emit('selectBoard', item.board.slug)"
+            @contextmenu="handleContextMenu($event, item.board.slug)"
           >
             {{ item.board.title }}
           </button>
-          <span v-else-if="item.kind === 'board'" class="app-header__crumb app-header__crumb--current">
+          <span
+            v-else-if="item.kind === 'board'"
+            class="max-w-40 px-2 py-1 border border-border bg-surface text-text truncate text-sm leading-tight"
+            @contextmenu="handleContextMenu($event, item.board.slug)"
+          >
             {{ item.board.title }}
           </span>
-          <span v-else class="app-header__ellipsis">...</span>
+          <span v-else class="text-text-muted text-xs leading-none">...</span>
 
-          <span v-if="index < breadcrumbItems.length - 1" class="app-header__separator">/</span>
+          <span v-if="index < breadcrumbItems.length - 1" class="text-text-muted text-xs leading-none">/</span>
         </template>
       </nav>
 
-      <span v-if="childBoards.length" class="app-header__separator">:</span>
+      <span v-if="childBoards.length" class="text-text-muted text-xs leading-none">:</span>
 
-      <div v-if="childBoards.length" class="app-header__subboards">
-        <div class="app-header__subboards-list">
+      <div v-if="childBoards.length" class="flex items-center min-w-0">
+        <div class="flex flex-nowrap gap-1.5 min-w-0 overflow-hidden max-[900px]:justify-start">
           <button
             v-for="board in childBoards"
             :key="board.slug"
-            class="app-header__subboard-chip"
+            class="max-w-40 px-2 py-1 border border-border bg-surface-1 text-text truncate text-sm hover:border-text hover:bg-surface"
             type="button"
             @click="emit('selectBoard', board.slug)"
+            @contextmenu="handleContextMenu($event, board.slug)"
           >
             {{ board.title }}
           </button>
@@ -90,142 +102,3 @@ const breadcrumbItems = computed<BreadcrumbItem[]>(() => {
     </div>
   </header>
 </template>
-
-<style scoped>
-.app-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.8rem 1.1rem;
-  border-bottom: 1px solid var(--shade-3);
-  background: rgba(20, 20, 20, 0.9);
-  backdrop-filter: blur(14px);
-}
-
-.app-header__brand {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-shrink: 0;
-  min-width: 0;
-}
-
-.app-header__brand-copy {
-  min-width: 0;
-}
-
-.app-header__logo {
-  width: 2.35rem;
-  height: 2.35rem;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-
-.app-header__title {
-  font-size: 0.98rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.app-header__nav {
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  overflow: hidden;
-}
-
-.app-header__breadcrumb {
-  display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  gap: 0.28rem;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.app-header__crumb,
-.app-header__subboard-chip {
-  border: 1px solid var(--shade-3);
-  background: var(--shade-1);
-  color: var(--shade-5);
-  font: inherit;
-}
-
-.app-header__crumb {
-  display: block;
-  max-width: 10rem;
-  padding: 0.3rem 0.55rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.82rem;
-  line-height: 1.15;
-}
-
-.app-header__crumb--current {
-  border-color: var(--shade-5);
-  background: var(--shade-2);
-}
-
-.app-header__separator,
-.app-header__ellipsis {
-  color: var(--shade-4);
-  font-size: 0.72rem;
-  line-height: 1;
-}
-
-.app-header__subboards {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-
-.app-header__subboards-list {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.35rem;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.app-header__subboard-chip {
-  max-width: 10rem;
-  padding: 0.34rem 0.58rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.78rem;
-}
-
-.app-header__crumb:hover,
-.app-header__subboard-chip:hover {
-  border-color: var(--shade-5);
-  background: var(--shade-2);
-}
-
-.app-header__subboard-chip:disabled {
-  opacity: 0.65;
-  cursor: not-allowed;
-}
-
-@media (max-width: 900px) {
-  .app-header {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .app-header__nav {
-    justify-content: flex-start;
-  }
-
-  .app-header__breadcrumb,
-  .app-header__subboards-list {
-    justify-content: flex-start;
-  }
-}
-</style>

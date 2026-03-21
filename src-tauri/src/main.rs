@@ -9,9 +9,9 @@ use tauri::{AppHandle, Emitter};
 
 use crate::backend::commands::{
     apply_workspace_snapshot, create_board, create_card_in_board, delete_board, delete_card_file,
-    load_app_config, load_workspace, rename_board, rename_card, save_app_config, save_board_file,
-    save_card_file, save_workspace_boards, sync_known_board_tree, unwatch_workspace,
-    watch_workspace,
+    load_app_config, load_workspace, reveal_in_file_manager, rename_board, rename_card,
+    save_app_config, save_board_file, save_card_file, save_workspace_boards, sync_known_board_tree,
+    unwatch_workspace, watch_workspace,
 };
 use crate::backend::models::{MenuActionPayload, WorkspaceWatcherState};
 use crate::backend::MENU_ACTION_EVENT;
@@ -48,6 +48,7 @@ fn main() {
             sync_known_board_tree,
             watch_workspace,
             unwatch_workspace,
+            reveal_in_file_manager,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -96,6 +97,7 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
             .build(app)?;
     let toggle_sub_boards =
         MenuItemBuilder::with_id("toggle-sub-boards", "Toggle Sub Boards").build(app)?;
+    let toggle_theme = MenuItemBuilder::with_id("toggle-theme", "Toggle Theme").build(app)?;
     let delete_current_board =
         MenuItemBuilder::with_id("delete-current-board", "Delete Current Board").build(app)?;
     let new_column = MenuItemBuilder::with_id("new-column", "New Column").build(app)?;
@@ -137,6 +139,8 @@ fn build_menu(app: &tauri::App) -> tauri::Result<tauri::menu::Menu<tauri::Wry>> 
         .separator()
         .item(&toggle_archive_column)
         .item(&toggle_sub_boards)
+        .separator()
+        .item(&toggle_theme)
         .separator()
         .item(&delete_current_board)
         .build()?;
@@ -181,6 +185,7 @@ fn map_menu_action(menu_id: &str) -> Option<&'static str> {
         "delete-selected-column" => Some("delete-selected-column"),
         "toggle-archive-column" => Some("toggle-archive-column"),
         "toggle-sub-boards" => Some("toggle-sub-boards"),
+        "toggle-theme" => Some("toggle-theme"),
         "delete-current-board" => Some("delete-current-board"),
         "archive-selected-cards" => Some("archive-selected-cards"),
         "delete-selected-cards" => Some("delete-selected-cards"),

@@ -1,12 +1,13 @@
+export type MarkdownPrimitive = string | number | boolean | null
+
 export type MarkdownValue =
-  | string
-  | number
-  | boolean
-  | null
+  | MarkdownPrimitive
   | MarkdownValue[]
   | { [key: string]: MarkdownValue | undefined }
 
-export type MarkdownRecord = Record<string, MarkdownValue | undefined>
+export interface MarkdownRecord {
+  [key: string]: MarkdownValue | undefined
+}
 
 export interface KanbanDiagnostic {
   level: 'error' | 'warning'
@@ -29,18 +30,21 @@ export interface KanbanBoardLink {
   title?: string
 }
 
-export interface KanbanChecklistItem {
-  checked: boolean
-  text: string
+export interface KanbanColumnSettings extends MarkdownRecord {
+  'wip-limit'?: number
+  collapsed?: boolean
+  'default-section'?: string
+  hidden?: boolean
 }
 
-export interface KanbanCardSection {
-  name: string
-  slug: string
-  index: number
-  markdown: string
-  checklist: KanbanChecklistItem[]
-  wikilinks: string[]
+export interface KanbanBoardSettings extends MarkdownRecord {
+  'group-by'?: 'none' | 'section' | 'assignee' | 'priority' | 'type' | 'due'
+  'show-empty-columns'?: boolean
+  'show-sub-boards'?: boolean
+  'show-archive-column'?: boolean
+  'card-preview'?: 'none' | 'metadata' | 'body'
+  'list-collapse'?: boolean[]
+  'column-settings'?: Record<string, KanbanColumnSettings>
 }
 
 export interface KanbanSection {
@@ -57,34 +61,48 @@ export interface KanbanColumn {
   sections: KanbanSection[]
 }
 
-export type KanbanCardType = 'task' | 'bug' | 'feature' | 'research' | 'chore'
-export type KanbanCardPriority = 'low' | 'medium' | 'high'
+export interface KanbanBoardDocument {
+  kind: 'board'
+  slug: string
+  path: string
+  title: string
+  frontmatter: MarkdownRecord
+  columns: KanbanColumn[]
+  subBoards: KanbanBoardLink[]
+  settings: KanbanBoardSettings | null
+  diagnostics: KanbanDiagnostic[]
+}
+
+export interface KanbanChecklistItem {
+  text: string
+  checked: boolean
+}
 
 export interface KanbanCardMetadata extends MarkdownRecord {
   title?: string
-  type?: KanbanCardType | string
-  priority?: KanbanCardPriority | string
+  type?: 'task' | 'bug' | 'feature' | 'research' | 'chore'
+  priority?: 'low' | 'medium' | 'high'
+  tags?: string[]
   assignee?: string
+  owners?: string[]
   due?: string
-  tags?: MarkdownValue[]
   estimate?: number
+  blocked_by?: string[]
+  blocks?: string[]
+  related?: string[]
+  scheduled?: string
+  started?: string
+  completed?: string
+  template?: string
 }
 
-export interface KanbanColumnSetting extends MarkdownRecord {
-  'wip-limit'?: number
-  collapsed?: boolean
-  'default-section'?: string
-  hidden?: boolean
-}
-
-export interface KanbanBoardSettings extends MarkdownRecord {
-  'show-sub-boards'?: boolean
-  'show-archive-column'?: boolean
-  'group-by'?: string
-  'show-empty-columns'?: boolean
-  'card-preview'?: string
-  'list-collapse'?: MarkdownValue[]
-  'column-settings'?: Record<string, KanbanColumnSetting>
+export interface KanbanCardSection {
+  name: string
+  slug: string
+  index: number
+  markdown: string
+  checklist: KanbanChecklistItem[]
+  wikilinks: string[]
 }
 
 export interface KanbanCardDocument {
@@ -97,18 +115,6 @@ export interface KanbanCardDocument {
   sections: KanbanCardSection[]
   checklist: KanbanChecklistItem[]
   wikilinks: string[]
-  diagnostics: KanbanDiagnostic[]
-}
-
-export interface KanbanBoardDocument {
-  kind: 'board'
-  slug: string
-  path: string
-  title: string
-  frontmatter: MarkdownRecord
-  columns: KanbanColumn[]
-  subBoards: KanbanBoardLink[]
-  settings: KanbanBoardSettings | null
   diagnostics: KanbanDiagnostic[]
 }
 

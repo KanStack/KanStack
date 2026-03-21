@@ -11,6 +11,8 @@ import {
     useAppUpdater,
     type AppUpdaterMessageKind,
 } from "@/composables/useAppUpdater";
+import ContextMenu from "@/components/ui/ContextMenu.vue";
+import ContextMenuItem from "@/components/ui/ContextMenuItem.vue";
 import { useBoardActions } from "@/composables/useBoardActions";
 import { useBoardSelection } from "@/composables/useBoardSelection";
 import {
@@ -42,6 +44,7 @@ const {
     isLoading,
     errorMessage,
     viewPreferences,
+    theme,
     openWorkspace,
     attachExistingBoard,
     closeWorkspace,
@@ -53,6 +56,7 @@ const {
     closeCard,
     applyWorkspaceMutation,
     updateViewPreferences,
+    setTheme,
 } = useWorkspace();
 
 const appBoardActions = useBoardActions({
@@ -105,6 +109,11 @@ const emptyStateCopy = computed(() => {
 
     return "Open an existing or create a new KanStack board ";
 });
+
+function cycleTheme() {
+    const nextTheme = theme.value === 'dark' ? 'light' : 'dark'
+    setTheme(nextTheme)
+}
 
 function createHistoryStateSnapshot(): HistoryStateSnapshot | null {
     if (!workspace.value) {
@@ -537,6 +546,141 @@ function openCard(selection: WorkspaceCardSelection) {
     keyboardMoveMode.value = null;
     boardSelection.selectSingle(selection);
     selectCard(selection);
+}
+
+interface CardContextMenuState {
+    type: "card";
+    cardSlug: string;
+    cardPath: string;
+    x: number;
+    y: number;
+}
+
+interface BoardContextMenuState {
+    type: "board";
+    boardPath: string;
+    x: number;
+    y: number;
+}
+
+type ContextMenuState = CardContextMenuState | BoardContextMenuState | null;
+
+const contextMenu = shallowRef<ContextMenuState>(null);
+
+function handleCardContextMenu(event: MouseEvent, cardSlug: string, cardPath: string | null) {
+    if (!workspace.value?.rootPath || !cardPath) {
+        return;
+    }
+
+    contextMenu.value = {
+        type: "card",
+        cardSlug,
+        cardPath,
+        x: event.clientX,
+        y: event.clientY,
+    };
+}
+
+function handleBoardContextMenu(event: MouseEvent, boardPath: string) {
+    if (!workspace.value?.rootPath) {
+        return;
+    }
+
+    contextMenu.value = {
+        type: "board",
+        boardPath,
+        x: event.clientX,
+        y: event.clientY,
+    };
+}
+
+function handleBreadcrumbContextMenu(event: MouseEvent, slug: string) {
+    if (!workspace.value?.rootPath) {
+        return;
+    }
+
+    const board = workspace.value.boardsBySlug[slug];
+    if (!board) {
+        return;
+    }
+
+    contextMenu.value = {
+        type: "board",
+        boardPath: board.path,
+        x: event.clientX,
+        y: event.clientY,
+    };
+}
+
+function closeContextMenu() {
+    contextMenu.value = null;
+}
+
+async function revealInFileManager(relativePath: string) {
+    if (!workspace.value?.rootPath) {
+        return;
+    }
+
+    try {
+        await invoke("reveal_in_file_manager", {
+            root: workspace.value.rootPath,
+            relativePath,
+        });
+    } catch (error) {
+        console.error("Failed to reveal in file manager:", error);
+    }
+}
+
+async function copyPathToClipboard(relativePath: string) {
+    if (!workspace.value?.rootPath) {
+        return;
+    }
+
+    const projectRoot = workspace.value.rootPath.replace(/[\/\\]TODO$/i, "");
+    const absolutePath = `${projectRoot}/${relativePath}`;
+
+    try {
+        await navigator.clipboard.writeText(absolutePath);
+    } catch (error) {
+        console.error("Failed to copy path to clipboard:", error);
+    }
+}
+
+function handleContextMenuReveal() {
+    if (!contextMenu.value) {
+        return;
+    }
+
+    const relativePath = contextMenu.value.type === "card"
+        ? contextMenu.value.cardPath
+        : contextMenu.value.boardPath;
+
+    closeContextMenu();
+    void revealInFileManager(relativePath);
+}
+
+const revealInFinderLabel = computed(() => {
+    const platform = navigator.platform.toLowerCase();
+    if (platform.includes("win")) {
+        return "Show in Explorer";
+    }
+    if (platform.includes("linux")) {
+        return "Open Containing Folder";
+    }
+    return "Reveal in Finder";
+});
+
+function handleContextMenuCopyPath() {
+    if (!contextMenu.value) {
+        return;
+    }
+
+    const relativePath = contextMenu.value.type === "card"
+        ? contextMenu.value.cardPath
+        : contextMenu.value.boardPath;
+
+    closeContextMenu();
+    void copyPathToClipboard(relativePath);
 }
 
 async function handleCardMove(payload: {
@@ -1203,6 +1347,9 @@ async function dispatchMenuAction(action: string) {
         case "toggle-sub-boards":
             await toggleSubBoards();
             break;
+        case "toggle-theme":
+            cycleTheme();
+            break;
         case "delete-current-board":
             await deleteCurrentBoard();
             break;
@@ -1558,11 +1705,12 @@ watch(
 </script>
 
 <template>
-    <div class="app-shell">
+    <div class="h-full flex flex-col" @contextmenu.prevent>
         <AppHeader
             :board-lineage="boardLineage"
             :child-boards="childBoards"
             @select-board="selectBoard"
+            @board-context-menu="handleBreadcrumbContextMenu"
         />
 
         <AppMessageBanner
@@ -1572,8 +1720,8 @@ watch(
             @close="dismissAppMessage"
         />
 
-        <main class="app-shell__main">
-            <div v-if="currentBoard" class="app-shell__panel">
+        <main class="flex-1 min-h-0 p-5">
+            <div v-if="currentBoard" class="h-full border border-border/60 bg-surface/90 p-4">
                 <BoardCanvas
                     :board="currentBoard"
                     :boards-by-slug="workspace?.boardsBySlug ?? {}"
@@ -1585,6 +1733,8 @@ watch(
                     :workspace-root="workspace?.rootPath ?? null"
                     @activate-card="handleCardActivate"
                     @add-column="createColumn"
+                    @board-context-menu="handleBoardContextMenu"
+                    @card-context-menu="handleCardContextMenu"
                     @clear-selections="clearSelections"
                     @create-card="createCardFromBoard"
                     @move-card="handleCardMove"
@@ -1600,31 +1750,27 @@ watch(
                 />
             </div>
 
-            <section v-else class="app-shell__state">
-                <div class="app-shell__state-eyebrow">
+            <section v-else class="h-full border border-border/60 bg-surface/90 flex flex-col items-start justify-center gap-4 p-[min(8vw,4rem)]">
+                <div class="text-text-muted text-lg tracking-widest uppercase">
                     Built by and for devs
                 </div>
-                <h1 class="app-shell__state-title">KanStack</h1>
-                <p class="app-shell__state-copy">{{ emptyStateCopy }}</p>
-                <div class="app-shell__state-actions">
+                <h1 class="m-0 text-3xl">KanStack</h1>
+                <p class="max-w-[34rem] m-0 text-text-muted text-body">{{ emptyStateCopy }}</p>
+                <div class="flex flex-wrap gap-3">
                     <button
-                        class="app-shell__state-button"
+                        class="btn btn-secondary"
                         type="button"
                         @click="openWorkspaceFromMenu"
                     >
                         open board
                     </button>
                     <button
-                        class="app-shell__state-button app-shell__state-button--primary"
+                        class="btn btn-primary"
                         type="button"
                         :disabled="appBoardActions.isCreatingBoard.value"
                         @click="createBoardFromWorkspace"
                     >
-                        {{
-                            appBoardActions.isCreatingBoard.value
-                                ? "creating..."
-                                : "new board"
-                        }}
+                        {{ appBoardActions.isCreatingBoard.value ? "creating..." : "new board" }}
                     </button>
                 </div>
             </section>
@@ -1643,92 +1789,20 @@ watch(
             @close="closeCard"
             @delete-card="deleteSingleCard"
         />
+
+        <ContextMenu
+            :visible="contextMenu !== null"
+            :x="contextMenu?.x ?? 0"
+            :y="contextMenu?.y ?? 0"
+            @close="closeContextMenu"
+        >
+            <ContextMenuItem @click="handleContextMenuReveal">
+                {{ revealInFinderLabel }}
+            </ContextMenuItem>
+            <ContextMenuItem @click="handleContextMenuCopyPath">
+                Copy Path
+            </ContextMenuItem>
+        </ContextMenu>
     </div>
 </template>
 
-<style scoped>
-.app-shell {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-}
-
-.app-shell__main {
-    flex: 1;
-    min-height: 0;
-    padding: 1.25rem;
-}
-
-.app-shell__panel,
-.app-shell__state {
-    height: 100%;
-    border: 1px solid var(--shade-3);
-    background: rgba(20, 20, 20, 0.9);
-}
-
-.app-shell__panel {
-    padding: 1rem;
-}
-
-.app-shell__state {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 1rem;
-    padding: min(8vw, 4rem);
-}
-
-.app-shell__state-eyebrow {
-    color: var(--shade-4);
-    font-size: 0.98rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-}
-
-.app-shell__state-title {
-    margin: 0;
-    font-size: clamp(1.8rem, 3vw, 3rem);
-}
-
-.app-shell__state-copy {
-    max-width: 34rem;
-    margin: 0;
-    color: var(--shade-4);
-    line-height: 1.7;
-}
-
-.app-shell__state-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-
-.app-shell__state-button {
-    padding: 0.8rem 1rem;
-    border: 1px solid var(--shade-3);
-    background: var(--shade-2);
-    color: var(--shade-5);
-    font: inherit;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-}
-
-.app-shell__state-button:hover {
-    border-color: var(--shade-5);
-}
-
-.app-shell__state-button--primary {
-    background: var(--shade-5);
-    color: var(--shade-1);
-}
-
-.app-shell__state-button--primary:hover {
-    background: #ffffff;
-}
-
-.app-shell__state-button:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-}
-</style>
