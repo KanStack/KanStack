@@ -104,7 +104,7 @@ export function useBoardActions(options: UseBoardActionsOptions) {
     }
   }
 
-  async function createCard(board: KanbanBoardDocument) {
+  async function createCard(board: KanbanBoardDocument, targetColumnSlug?: string) {
     const workspaceRoot = options.getWorkspaceRoot()
     if (!workspaceRoot || board.columns.length === 0 || isCreatingCard.value) {
       return null
@@ -113,7 +113,9 @@ export function useBoardActions(options: UseBoardActionsOptions) {
     const slug = getNextCardSlug(Object.values(options.getCardsBySlug()), board)
     const title = 'Untitled Card'
     const cardPath = buildBoardCardPath(board, slug)
-    const targetColumn = board.columns.find((column) => !isArchiveColumnSlug(column.slug)) ?? board.columns[0]
+    const targetColumn = targetColumnSlug 
+      ? board.columns.find((column) => column.slug === targetColumnSlug) ?? board.columns[0]
+      : board.columns.find((column) => !isArchiveColumnSlug(column.slug)) ?? board.columns[0]
     const targetSection = targetColumn.sections[0] ?? null
     const cardContent = serializeCardMarkdown({
       title,

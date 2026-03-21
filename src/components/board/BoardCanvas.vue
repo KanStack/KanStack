@@ -66,6 +66,7 @@ const emit = defineEmits<{
     ];
     openCard: [selection: WorkspaceCardSelection];
     cardContextMenu: [event: MouseEvent, cardSlug: string, cardPath: string | null];
+    columnContextMenu: [event: MouseEvent, columnSlug: string, cardCount: number];
     boardContextMenu: [event: MouseEvent, boardPath: string];
     reorderColumns: [payload: { draggedSlug: string; targetIndex: number }];
     renameBoard: [title: string];
@@ -253,6 +254,10 @@ function handleCardContextMenu(event: MouseEvent, cardSlug: string, cardPath: st
     emit("cardContextMenu", event, cardSlug, cardPath);
 }
 
+function handleColumnContextMenu(event: MouseEvent, columnSlug: string, cardCount: number) {
+    emit("columnContextMenu", event, columnSlug, cardCount);
+}
+
 function handleBoardContextMenu(event: MouseEvent) {
     event.preventDefault();
     emit("boardContextMenu", event, props.board.path);
@@ -344,6 +349,10 @@ onMounted(() => {
         "kanstack:cancel-board-rename",
         handleCancelBoardRename as EventListener,
     );
+    window.addEventListener(
+        "kanstack:request-rename-board",
+        handleRequestRenameBoard as EventListener,
+    );
 });
 
 onUnmounted(() => {
@@ -351,7 +360,15 @@ onUnmounted(() => {
         "kanstack:cancel-board-rename",
         handleCancelBoardRename as EventListener,
     );
+    window.removeEventListener(
+        "kanstack:request-rename-board",
+        handleRequestRenameBoard as EventListener,
+    );
 });
+
+function handleRequestRenameBoard() {
+    void startBoardTitleEdit();
+}
 </script>
 
 <template>
@@ -429,6 +446,7 @@ onUnmounted(() => {
                         @activate-card="handleActivateCard"
                         @open-card="handleOpenCard"
                         @card-context-menu="handleCardContextMenu"
+                        @column-context-menu="handleColumnContextMenu"
                         @rename-column="emit('renameColumn', $event)"
                         @select-column="emit('selectColumn', $event)"
                     />
@@ -463,6 +481,7 @@ onUnmounted(() => {
                     @activate-card="handleActivateCard"
                     @open-card="handleOpenCard"
                     @card-context-menu="handleCardContextMenu"
+                    @column-context-menu="handleColumnContextMenu"
                     @rename-column="emit('renameColumn', $event)"
                     @select-column="emit('selectColumn', $event)"
                 />

@@ -12,19 +12,24 @@ import {
     type AppUpdaterMessageKind,
 } from "@/composables/useAppUpdater";
 import ContextMenu from "@/components/ui/ContextMenu.vue";
-import ContextMenuItem from "@/components/ui/ContextMenuItem.vue";
+import type { KanbanCardDocument } from "@docs/schemas/kanban-parser-schema";
 import { useBoardActions } from "@/composables/useBoardActions";
 import { useBoardSelection } from "@/composables/useBoardSelection";
+import { useClipboard } from "@/composables/useClipboard";
+import { useContextMenuActions } from "@/composables/useContextMenuActions";
 import {
     useActionHistory,
     type HistoryStateSnapshot,
 } from "@/history/useActionHistory";
 import { useWorkspace } from "@/composables/useWorkspace";
 import { isCardReorderEnabled } from "@/utils/appConfig";
+import { cardPathFromId } from "@/utils/kanbanPath";
+import { serializeCardMarkdown } from "@/utils/serializeCard";
 import {
     ARCHIVE_COLUMN_NAME,
     ARCHIVE_COLUMN_SLUG,
     SHOW_ARCHIVE_COLUMN_SETTING,
+    isArchiveColumnSlug,
 } from "@/utils/archiveColumn";
 import type {
     VisibleBoardCardSelection,
@@ -66,10 +71,8 @@ const appBoardActions = useBoardActions({
     getCardsBySlug: () => workspace.value?.cardsBySlug ?? {},
 });
 const boardSelection = useBoardSelection();
-const appMessage = shallowRef<{
-    kind: AppUpdaterMessageKind;
-    text: string;
-} | null>(null);
+const clipboard = useClipboard();
+const appMessage = shallowRef<{ kind: "error"; text: string } | null>(null);
 const keyboardMoveMode = shallowRef<"card" | "column" | null>(null);
 const selectedColumnState = shallowRef<string | null>(null);
 const actionHistory = useActionHistory();
@@ -313,6 +316,18 @@ async function createColumn() {
     selectedColumnState.value = after.selectedColumnSlug;
 }
 
+function triggerRename() {
+    if (selectedColumnSlug.value && selectedColumnSlug.value !== ARCHIVE_COLUMN_SLUG) {
+        window.dispatchEvent(
+            new CustomEvent("kanstack:request-rename-column", {
+                detail: { slug: selectedColumnSlug.value },
+            }),
+        );
+    } else if (currentBoardSlug.value) {
+        window.dispatchEvent(new CustomEvent("kanstack:request-rename-board"));
+    }
+}
+
 async function handleColumnReorder(payload: {
     draggedSlug: string;
     targetIndex: number;
@@ -548,50 +563,57 @@ function openCard(selection: WorkspaceCardSelection) {
     selectCard(selection);
 }
 
-interface CardContextMenuState {
-    type: "card";
-    cardSlug: string;
-    cardPath: string;
-    x: number;
-    y: number;
-}
-
-interface BoardContextMenuState {
-    type: "board";
-    boardPath: string;
-    x: number;
-    y: number;
-}
-
-type ContextMenuState = CardContextMenuState | BoardContextMenuState | null;
-
-const contextMenu = shallowRef<ContextMenuState>(null);
+const contextMenuActions = useContextMenuActions();
 
 function handleCardContextMenu(event: MouseEvent, cardSlug: string, cardPath: string | null) {
     if (!workspace.value?.rootPath || !cardPath) {
         return;
     }
 
-    contextMenu.value = {
-        type: "card",
-        cardSlug,
-        cardPath,
+    const cardSelection = boardSelection.selectedCards.value.find(
+        (s) => s.slug === cardSlug && boardSelection.selectedKeys.value.includes(`${s.sourceBoardSlug}:${s.slug}`),
+    );
+
+    const selections = cardSelection
+        ? boardSelection.selectedCards.value
+        : [{ slug: cardSlug, sourceBoardSlug: currentBoardSlug.value! }];
+
+    contextMenuActions.setCardContext({
         x: event.clientX,
         y: event.clientY,
-    };
+        selections,
+        cardsBySlug: workspace.value.cardsBySlug,
+        boardsBySlug: workspace.value.boardsBySlug,
+        workspaceRoot: workspace.value.rootPath,
+        onOpen: () => {
+            if (selections.length === 1) {
+                openCard(selections[0]);
+            }
+        },
+        onArchive: archiveSelectedCards,
+        onDelete: deleteSelectedCards,
+        onClose: requestCloseEditor,
+        onCopy: copySelectedCards,
+        onCut: cutSelectedCards,
+    });
 }
 
-function handleBoardContextMenu(event: MouseEvent, boardPath: string) {
-    if (!workspace.value?.rootPath) {
+function handleBoardContextMenu(event: MouseEvent, _boardPath: string) {
+    if (!workspace.value?.rootPath || !currentBoard.value) {
         return;
     }
 
-    contextMenu.value = {
-        type: "board",
-        boardPath,
+    contextMenuActions.setBoardContext({
         x: event.clientX,
         y: event.clientY,
-    };
+        board: currentBoard.value,
+        workspaceRoot: workspace.value.rootPath,
+        onNewColumn: createColumn,
+        onRename: () => {
+            window.dispatchEvent(new CustomEvent("kanstack:request-rename-board"));
+        },
+        onDelete: deleteCurrentBoard,
+    });
 }
 
 function handleBreadcrumbContextMenu(event: MouseEvent, slug: string) {
@@ -604,83 +626,158 @@ function handleBreadcrumbContextMenu(event: MouseEvent, slug: string) {
         return;
     }
 
-    contextMenu.value = {
-        type: "board",
-        boardPath: board.path,
+    contextMenuActions.setBoardContext({
         x: event.clientX,
         y: event.clientY,
-    };
+        board,
+        workspaceRoot: workspace.value.rootPath,
+        onNewColumn: async () => {
+            const after = await executeTrackedAction("New Column", async () => {
+                const result = await appBoardActions.addColumn(board);
+                if (!result) {
+                    return null;
+                }
+                return {
+                    currentBoardSlug: board.slug,
+                    selectedCard: null,
+                    selectedColumnSlug: result.slug,
+                    snapshot: result.snapshot,
+                };
+            });
+            if (after) {
+                applyWorkspaceMutation({
+                    snapshot: after.snapshot,
+                    currentBoardSlug: after.currentBoardSlug,
+                    selectedCard: after.selectedCard,
+                });
+                selectedColumnState.value = after.selectedColumnSlug;
+            }
+        },
+        onRename: () => {
+            if (board.slug === currentBoardSlug.value) {
+                window.dispatchEvent(new CustomEvent("kanstack:request-rename-board"));
+            }
+        },
+        onDelete: async () => {
+            await deleteBoardBySlug(slug);
+        },
+    });
 }
 
-function closeContextMenu() {
-    contextMenu.value = null;
-}
-
-async function revealInFileManager(relativePath: string) {
+async function deleteBoardBySlug(slug: string) {
     if (!workspace.value?.rootPath) {
         return;
     }
 
-    try {
-        await invoke("reveal_in_file_manager", {
-            root: workspace.value.rootPath,
-            relativePath,
-        });
-    } catch (error) {
-        console.error("Failed to reveal in file manager:", error);
-    }
-}
-
-async function copyPathToClipboard(relativePath: string) {
-    if (!workspace.value?.rootPath) {
+    const board = workspace.value.boardsBySlug[slug];
+    if (!board) {
         return;
     }
 
-    const projectRoot = workspace.value.rootPath.replace(/[\/\\]TODO$/i, "");
-    const absolutePath = `${projectRoot}/${relativePath}`;
-
-    try {
-        await navigator.clipboard.writeText(absolutePath);
-    } catch (error) {
-        console.error("Failed to copy path to clipboard:", error);
-    }
-}
-
-function handleContextMenuReveal() {
-    if (!contextMenu.value) {
+    const confirmed = window.confirm(`Delete board "${board.title}"? This will also move its cards to Trash.`);
+    if (!confirmed) {
         return;
     }
 
-    const relativePath = contextMenu.value.type === "card"
-        ? contextMenu.value.cardPath
-        : contextMenu.value.boardPath;
-
-    closeContextMenu();
-    void revealInFileManager(relativePath);
+    await invoke("delete_board", {
+        root: workspace.value.rootPath,
+        boardPath: board.path,
+        boardSlug: slug,
+    });
 }
 
-const revealInFinderLabel = computed(() => {
-    const platform = navigator.platform.toLowerCase();
-    if (platform.includes("win")) {
-        return "Show in Explorer";
+function handleContextMenuAction(action: (() => void | Promise<void>) | undefined) {
+    contextMenuActions.clearContext();
+    if (action) {
+        void action();
     }
-    if (platform.includes("linux")) {
-        return "Open Containing Folder";
-    }
-    return "Reveal in Finder";
-});
+}
 
-function handleContextMenuCopyPath() {
-    if (!contextMenu.value) {
+function handleColumnContextMenu(event: MouseEvent, columnSlug: string, cardCount: number) {
+    if (!workspace.value?.rootPath || !currentBoard.value) {
         return;
     }
 
-    const relativePath = contextMenu.value.type === "card"
-        ? contextMenu.value.cardPath
-        : contextMenu.value.boardPath;
+    const isArchive = isArchiveColumnSlug(columnSlug);
 
-    closeContextMenu();
-    void copyPathToClipboard(relativePath);
+    contextMenuActions.setColumnContext({
+        x: event.clientX,
+        y: event.clientY,
+        columnSlug,
+        isArchiveColumn: isArchive,
+        cardCount,
+        board: currentBoard.value,
+        boardsBySlug: workspace.value.boardsBySlug,
+        workspaceRoot: workspace.value.rootPath,
+        cardsBySlug: workspace.value.cardsBySlug,
+        onNewCard: async () => {
+            if (isArchiveColumnSlug(columnSlug)) {
+                return;
+            }
+            const after = await executeTrackedAction("New Card", async () => {
+                const result = await appBoardActions.createCard(currentBoard.value!, columnSlug);
+                if (!result) {
+                    return null;
+                }
+                return {
+                    currentBoardSlug: currentBoard.value!.slug,
+                    selectedCard: {
+                        slug: result.slug,
+                        sourceBoardSlug: currentBoard.value!.slug,
+                    },
+                    selectedColumnSlug: null,
+                    snapshot: result.snapshot,
+                };
+            });
+            if (after) {
+                await applyHistoryStateSnapshot(after);
+            }
+        },
+        onRename: () => {
+            window.dispatchEvent(
+                new CustomEvent("kanstack:request-rename-column", {
+                    detail: { slug: columnSlug },
+                }),
+            );
+        },
+        onArchiveAll: async () => {
+            const column = currentBoard.value?.columns.find((c) => c.slug === columnSlug);
+            if (!column || isArchiveColumnSlug(columnSlug)) {
+                return;
+            }
+            const selections: WorkspaceCardSelection[] = column.sections.flatMap((s) =>
+                s.cards.map((c) => ({ slug: c.slug, sourceBoardSlug: currentBoardSlug.value! })),
+            );
+            if (selections.length === 0) {
+                return;
+            }
+            boardSelection.selectedKeys.value = selections.map((s) => `${s.sourceBoardSlug}:${s.slug}`);
+            await archiveSelectedCards();
+        },
+        onDeleteColumn: async () => {
+            selectedColumnState.value = columnSlug;
+            await deleteSelectedColumn();
+        },
+        onDeleteAllArchived: async () => {
+            const column = currentBoard.value?.columns.find((c) => c.slug === columnSlug);
+            if (!column || !isArchiveColumnSlug(columnSlug)) {
+                return;
+            }
+            const selections: WorkspaceCardSelection[] = column.sections.flatMap((s) =>
+                s.cards.map((c) => ({ slug: c.slug, sourceBoardSlug: currentBoardSlug.value! })),
+            );
+            if (selections.length === 0) {
+                return;
+            }
+            boardSelection.selectedKeys.value = selections.map((s) => `${s.sourceBoardSlug}:${s.slug}`);
+            await deleteSelectedCards();
+        },
+        onPaste: async () => {
+            boardSelection.clearSelection();
+            selectedColumnState.value = columnSlug;
+            await pasteCards(columnSlug);
+        },
+    });
 }
 
 async function handleCardMove(payload: {
@@ -908,6 +1005,105 @@ async function deleteSelectedCards() {
 async function deleteSingleCard(selection: WorkspaceCardSelection) {
     boardSelection.selectSingle(selection);
     await deleteSelectedCards();
+}
+
+async function copySelectedCards() {
+    const selectedCards = boardSelection.selectedCards.value;
+    if (!selectedCards.length || !workspace.value) {
+        return;
+    }
+
+    const cards = selectedCards
+        .map((selection) => workspace.value!.cardsBySlug[selection.slug])
+        .filter((card): card is KanbanCardDocument => Boolean(card));
+
+    if (!cards.length) {
+        return;
+    }
+
+    const success = await clipboard.copyCards(cards);
+    if (!success) {
+        return;
+    }
+}
+
+async function cutSelectedCards() {
+    const selectedCards = boardSelection.selectedCards.value;
+    if (!selectedCards.length || !workspace.value) {
+        return;
+    }
+
+    const cards = selectedCards
+        .map((selection) => workspace.value!.cardsBySlug[selection.slug])
+        .filter((card): card is KanbanCardDocument => Boolean(card));
+
+    if (!cards.length) {
+        return;
+    }
+
+    const success = await clipboard.copyCards(cards);
+    if (success) {
+        await archiveSelectedCards();
+    }
+}
+
+async function pasteCards(targetColumnSlug?: string) {
+    const clipboardCards = await clipboard.getClipboardCards();
+    if (!clipboardCards.length || !currentBoard.value || !workspace.value?.rootPath) {
+        return;
+    }
+
+    const columnSlug = targetColumnSlug ?? selectedColumnState.value ?? currentBoard.value.columns.find((c) => !isArchiveColumnSlug(c.slug))?.slug;
+    if (!columnSlug) {
+        return;
+    }
+
+    const targetColumn = currentBoard.value.columns.find((c) => c.slug === columnSlug);
+    if (!targetColumn) {
+        return;
+    }
+
+    for (const cardData of clipboardCards) {
+        const after = await executeTrackedAction("Paste Card", async () => {
+            const result = await appBoardActions.createCard(currentBoard.value!, columnSlug);
+            if (!result) {
+                return null;
+            }
+
+            const cardContent = serializeCardMarkdown({
+                title: cardData.title,
+                metadata: {
+                    title: cardData.title,
+                    ...cardData.metadata,
+                },
+                body: cardData.body,
+            });
+
+            await invoke('save_card_file', {
+                root: workspace.value!.rootPath,
+                path: cardPathFromId(result.slug),
+                content: cardContent,
+            });
+            const refreshedSnapshot = await invoke<WorkspaceSnapshot>('load_workspace', {
+                path: workspace.value!.rootPath,
+            });
+
+            return {
+                currentBoardSlug: currentBoard.value!.slug,
+                selectedCard: null,
+                selectedColumnSlug: columnSlug,
+                snapshot: refreshedSnapshot,
+            };
+        });
+
+        if (after) {
+            applyWorkspaceMutation({
+                snapshot: after.snapshot,
+                currentBoardSlug: after.currentBoardSlug,
+                selectedCard: after.selectedCard,
+            });
+        }
+    }
 }
 
 async function deleteCurrentBoard() {
@@ -1263,9 +1459,40 @@ function handleGlobalKeydown(event: KeyboardEvent) {
         return;
     }
 
+    if (event.key.toLowerCase() === "c" && boardSelection.selectedCount.value > 0) {
+        event.preventDefault();
+        void copySelectedCards();
+        return;
+    }
+
+    if (event.key.toLowerCase() === "x" && boardSelection.selectedCount.value > 0) {
+        event.preventDefault();
+        void cutSelectedCards();
+        return;
+    }
+
+    if (event.key.toLowerCase() === "v") {
+        event.preventDefault();
+        void pasteCards();
+        return;
+    }
+
+    if (event.key.toLowerCase() === "c") {
+        event.preventDefault();
+        void createColumn();
+        return;
+    }
+
+    if (event.key.toLowerCase() === "r") {
+        event.preventDefault();
+        triggerRename();
+        return;
+    }
+
     if (event.key.toLowerCase() === "a" && event.shiftKey) {
         event.preventDefault();
         void toggleArchiveColumn();
+        return;
     }
 }
 
@@ -1316,6 +1543,9 @@ async function dispatchMenuAction(action: string) {
             break;
         case "new-board":
             await createBoardFromWorkspace();
+            break;
+        case "rename-selected-board":
+            triggerRename();
             break;
         case "attach-existing-board":
             await attachExistingBoardFromWorkspace();
@@ -1735,6 +1965,7 @@ watch(
                     @add-column="createColumn"
                     @board-context-menu="handleBoardContextMenu"
                     @card-context-menu="handleCardContextMenu"
+                    @column-context-menu="handleColumnContextMenu"
                     @clear-selections="clearSelections"
                     @create-card="createCardFromBoard"
                     @move-card="handleCardMove"
@@ -1791,18 +2022,12 @@ watch(
         />
 
         <ContextMenu
-            :visible="contextMenu !== null"
-            :x="contextMenu?.x ?? 0"
-            :y="contextMenu?.y ?? 0"
-            @close="closeContextMenu"
-        >
-            <ContextMenuItem @click="handleContextMenuReveal">
-                {{ revealInFinderLabel }}
-            </ContextMenuItem>
-            <ContextMenuItem @click="handleContextMenuCopyPath">
-                Copy Path
-            </ContextMenuItem>
-        </ContextMenu>
+            :visible="contextMenuActions.context.value !== null"
+            :x="contextMenuActions.context.value?.x ?? 0"
+            :y="contextMenuActions.context.value?.y ?? 0"
+            :items="contextMenuActions.items.value"
+            @close="contextMenuActions.clearContext"
+            @action="handleContextMenuAction"
+        />
     </div>
 </template>
-
