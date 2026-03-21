@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "KanStack",
-  "version": "0.5.4",
-  "identifier": "com.kanstack.app",
+  "version": "0.7.0",
+  "identifier": "com.kanstack.desktop",
   "build": {
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build",
@@ -28,9 +28,24 @@
     }
   },
   "bundle": {
-    "active": false,
+    "active": true,
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
     "resources": {
       "./Credits.html": "Credits.html"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVFRjkxQkM2NjVFOEFGMDQKUldRRXIraGx4aHY1N2p5TGNvWVQ5SytxNjlrZVhTMjNnc2duU01QL2IxQTR2QXdjS2ZSQ0ZZZk8K",
+      "endpoints": [
+        "https://github.com/KanStack/KanStack/releases/latest/download/latest.json"
+      ]
     }
   }
 }

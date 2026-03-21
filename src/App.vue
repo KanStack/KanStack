@@ -7,6 +7,10 @@ import AppHeader from "@/components/app/AppHeader.vue";
 import AppMessageBanner from "@/components/app/AppMessageBanner.vue";
 import BoardCanvas from "@/components/board/BoardCanvas.vue";
 import CardEditorModal from "@/components/card/CardEditorModal.vue";
+import {
+    useAppUpdater,
+    type AppUpdaterMessageKind,
+} from "@/composables/useAppUpdater";
 import { useBoardActions } from "@/composables/useBoardActions";
 import { useBoardSelection } from "@/composables/useBoardSelection";
 import {
@@ -58,12 +62,18 @@ const appBoardActions = useBoardActions({
     getCardsBySlug: () => workspace.value?.cardsBySlug ?? {},
 });
 const boardSelection = useBoardSelection();
-const appMessage = shallowRef<{ kind: "error"; text: string } | null>(null);
+const appMessage = shallowRef<{
+    kind: AppUpdaterMessageKind;
+    text: string;
+} | null>(null);
 const keyboardMoveMode = shallowRef<"card" | "column" | null>(null);
 const selectedColumnState = shallowRef<string | null>(null);
 const actionHistory = useActionHistory();
 let appMessageTimer: number | null = null;
 let unlistenMenuActions: UnlistenFn | null = null;
+const { checkForUpdates, scheduleStartupCheck } = useAppUpdater({
+    notify: showAppMessage,
+});
 const canReorderCards = computed(() => isCardReorderEnabled(viewPreferences.value));
 const selectedColumn = computed(() => {
     if (!currentBoard.value || !selectedColumnState.value) {
@@ -193,6 +203,7 @@ async function attachExistingBoardFromWorkspace() {
 onMounted(() => {
     void restoreWorkspace();
     void attachMenuActionListener();
+    scheduleStartupCheck();
     window.addEventListener("keydown", handleGlobalKeydown);
     window.addEventListener("keyup", handleGlobalKeyup);
 });
@@ -870,13 +881,20 @@ function requestCancelBoardRename() {
     window.dispatchEvent(new CustomEvent("kanstack:cancel-board-rename"));
 }
 
-function showAppMessage(text: string) {
+function showAppMessage(
+    text: string,
+    kind: AppUpdaterMessageKind = "error",
+    durationMs = 5000,
+) {
     clearAppMessageTimer();
-    appMessage.value = { kind: "error", text };
+    appMessage.value = { kind, text };
+    if (durationMs <= 0) {
+        return;
+    }
     appMessageTimer = window.setTimeout(() => {
         appMessage.value = null;
         appMessageTimer = null;
-    }, 5000);
+    }, durationMs);
 }
 
 function showMissingKnownBoardMessage(paths: string[]) {
@@ -1136,6 +1154,9 @@ async function dispatchMenuAction(action: string) {
     switch (action) {
         case "open-folder":
             await openWorkspaceFromMenu();
+            break;
+        case "check-for-updates":
+            await checkForUpdates("manual");
             break;
         case "close-folder":
             await closeWorkspace();
