@@ -72,7 +72,7 @@ const appBoardActions = useBoardActions({
 });
 const boardSelection = useBoardSelection();
 const clipboard = useClipboard();
-const appMessage = shallowRef<{ kind: "error"; text: string } | null>(null);
+const appMessage = shallowRef<{ kind: AppUpdaterMessageKind; text: string } | null>(null);
 const keyboardMoveMode = shallowRef<"card" | "column" | null>(null);
 const selectedColumnState = shallowRef<string | null>(null);
 const actionHistory = useActionHistory();
