@@ -3,8 +3,12 @@
 
 import { describe, expect, it } from 'vitest'
 
+import packageJson from '../../package.json'
+import defaultCapabilities from '../../src-tauri/capabilities/default.json'
 import tauriConfig from '../../src-tauri/tauri.conf.json'
 import tauriReleaseConfig from '../../src-tauri/tauri.release.conf.json'
+import cargoToml from '../../src-tauri/Cargo.toml?raw'
+import mainRs from '../../src-tauri/src/main.rs?raw'
 
 interface TauriConfig {
   bundle?: {
@@ -56,5 +60,19 @@ describe('tauri config', () => {
 
     expect(config.bundle?.active).toBe(true)
     expect(config.bundle?.createUpdaterArtifacts).toBe(true)
+  })
+
+  it('keeps app updater dependencies and permissions wired together', () => {
+    expect(packageJson.dependencies).toMatchObject({
+      '@tauri-apps/plugin-process': expect.any(String),
+      '@tauri-apps/plugin-updater': expect.any(String),
+    })
+    expect(cargoToml).toContain('tauri-plugin-process')
+    expect(cargoToml).toContain('tauri-plugin-updater')
+    expect(mainRs).toContain('tauri_plugin_process::init()')
+    expect(mainRs).toContain('tauri_plugin_updater::Builder::new().build()')
+    expect(defaultCapabilities.permissions).toEqual(
+      expect.arrayContaining(['process:default', 'updater:default']),
+    )
   })
 })
